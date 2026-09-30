@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vital Reader">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Vital Reader</title>
+<style>
+/* Plain 1996 page, but soft on the eyes: dim paper, dark grey ink, default fonts and buttons. */
+:root {
+  --bg: #ece6d9;
+  --fg: #2b2a27;
+  --muted: #6b665c;
+  --link: #1f4f8f;
+  --visited: #5b3a7a;
+  --rule: #b9b1a2;
+  --mark: #d9cfb8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1d1c1a; --fg: #cfc8ba; --muted: #8d877b; --link: #8fb1dc; --visited: #b89ad1; --rule: #45423c; --mark: #34312b; color-scheme: dark; }
+}
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px; line-height: 1.55;
+  margin: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
+}
+main { max-width: 36em; margin: 0 auto; }
+a { color: var(--link); }
+a:visited { color: var(--visited); }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 1em 0; }
+button, select { font-size: 16px; margin: 2px 2px 2px 0; }
+small, .meta { color: var(--muted); font-size: 15px; }
+h1 { font-size: 1.6em; line-height: 1.2; margin: .3em 0 .2em; font-weight: normal; }
+#article h2, #article .mw-heading2 h2 { font-size: 1.3em; font-weight: normal; border-bottom: 1px solid var(--rule); margin-top: 1.6em; }
+#article h3 { font-size: 1.1em; margin-top: 1.3em; }
+#article h4, #article h5 { font-size: 1em; }
+#article table { font-size: 15px; border-collapse: collapse; }
+#article td, #article th { border: 1px solid var(--rule); padding: 2px 5px; vertical-align: top; }
+.tablewrap { overflow-x: auto; max-width: 100%; }
+#article blockquote { margin-left: 1em; color: var(--muted); }
+#article dd { margin-left: 1em; }
+.rate button { min-width: 2.4em; }
+.rate button.on { background: var(--mark); font-weight: bold; }
+#status { color: var(--muted); font-size: 15px; min-height: 1.2em; }
+textarea { width: 100%; font-size: 13px; height: 7em; box-sizing: border-box; }
+details { margin: .6em 0; }
+summary { cursor: pointer; }
+ul.hist { padding-left: 1.2em; font-size: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <b>Vital Reader</b>
+    <small>&middot; <label><input type="radio" name="lang" value="en" id="lang-en"> EN</label>
+    <label><input type="radio" name="lang" value="it" id="lang-it"> IT</label></small>
+  </div>
+  <div>
+    <button id="btn-pick">Next for me</button>
+    <button id="btn-surprise">Surprise me</button>
+    <select id="domain">
+      <option value="">any area</option>
+      <option value="history">history</option>
+      <option value="philosophy">philosophy</option>
+      <option value="art">art</option>
+      <option value="geography">geography</option>
+      <option value="literature">literature</option>
+      <option value="music">music</option>
+      <option value="science">science</option>
+    </select>
+  </div>
+  <div id="status">Loading the list of important topics&hellip;</div>
+  <div id="kindle-out"></div>
+  <hr>
+
+  <div id="reader" hidden>
+    <div id="backrow" hidden><button id="btn-back">&larr; back</button></div>
+    <h1 id="a-title"></h1>
+    <div class="meta" id="a-meta"></div>
+    <div class="meta" id="a-why"></div>
+    <div class="meta">
+      <button id="btn-otherlang"></button>
+      <button id="btn-kindle1">Send to Kindle</button>
+      <a id="a-src" href="#" target="_blank" rel="noopener">open on Wikipedia</a>
+    </div>
+    <hr>
+    <div id="article"></div>
+    <hr>
+    <div id="ratebox">
+      <div>How interesting was it?</div>
+      <div class="rate" id="rate">
+        <button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button><button data-r="4">4</button><button data-r="5">5</button>
+        <button id="btn-skip">not now, skip</button>
+      </div>
+      <small id="rate-msg"></small>
+    </div>
+    <div><button id="btn-next2">Next for me</button></div>
+    <hr>
+  </div>
+
+  <details id="d-kindle" open><summary>Kindle</summary>
+    <div>Bundle of
+      <select id="bundle-n"><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option></select>
+      articles picked for me <button id="btn-bundle">Make Kindle bundle</button></div>
+    <small>When the file is ready, tap Share and pick the Kindle app. Or pick Mail and send it to your @kindle.com address.</small>
+    <div><b>On my Kindle, not rated yet</b></div>
+    <div id="pending"></div>
+  </details>
+  <details id="d-hist"><summary>What I've read</summary><div id="hist"></div></details>
+  <details id="d-taste"><summary>What it has learned about me</summary><div id="taste"></div></details>
+  <details><summary>Backup and settings</summary>
+    <p><small>Ratings live only in this browser. Copy this text somewhere safe now and then, and paste it back to restore.</small></p>
+    <textarea id="backup" spellcheck="false"></textarea>
+    <div><button id="btn-export">Show backup</button><button id="btn-copy">Copy</button><button id="btn-import">Restore from text</button></div>
+    <p><button id="btn-reload-lists">Reload topic lists from Wikipedia</button></p>
+    <small id="set-msg"></small>
+  </details>
+  <p><small>Topics come from Wikipedia's list of Vital Articles (Level 4, about 10,000 topics chosen by editors as the most important). Level 3 topics, the 1,000 most essential, come up more often. Text is from Wikipedia, CC BY-SA.</small></p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function () {
+"use strict";
+
+/* ---------- config ---------- */
+var BASE = { history: 1, philosophy: 1, art: 1, geography: 1, literature: 0.3, music: 0.3, science: 0.3 };
+var CORE = ["history", "philosophy", "art", "geography"];
+var L3_BONUS = 1.8;
+var TARGET_MIN = 10, TARGET_MAX = 30, WPM = 230;
+var LISTS_KEY = "vr_lists_v1", STATE_KEY = "vr_state_v1";
+var LIST_TTL = 30 * 86400000;
+
+function artsRule(p) {
+  if (/literat|poet|novel|drama|theat|fiction|writ|epic|prose/i.test(p)) return "literature";
+  if (/music|song|opera|instrument|compos|melod|rhythm/i.test(p)) return "music";
+  return "art";
+}
+function peopleRule(p) {
+  if (/philosoph/i.test(p)) return "philosophy";
+  if (/music|compos|singer/i.test(p)) return "music";
+  if (/writer|poet|journalist|author|playwright|novelist/i.test(p)) return "literature";
+  if (/artist|painter|sculpt|architect|photograph/i.test(p)) return "art";
+  if (/scient|inventor|mathemat/i.test(p)) return "science";
+  if (/politic|leader|military|explorer|religio|revolution|ruler|monarch|activist|reformer|historical/i.test(p)) return "history";
+  return null;
+}
+function fixed(d) { return function () { return d; }; }
+var SOURCES = [
+  { page: "History", rule: fixed("history") },
+  { page: "Geography", rule: fixed("geography") },
+  { page: "Arts", rule: artsRule },
+  { page: "Philosophy and religion", rule: fixed("philosophy") },
+  { page: "People", rule: peopleRule },
+  { page: "Physical sciences", rule: fixed("science") },
+  { page: "Biology and health sciences", rule: fixed("science") },
+  { page: "Mathematics", rule: fixed("science") }
+];
+
+/* ---------- storage ---------- */
+function load(key) { try { var s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch (e) { return false; } }
+
+var state = load(STATE_KEY) || {};
+state.ratings = state.ratings || {};   // title -> {r, d, p, at, skip}
+state.lang = state.lang || "en";
+state.log = state.log || [];           // [{t, at}]
+state.kindle = state.kindle || [];     // sent to Kindle, waiting for a rating: [{t, title, lang, at}]
+function saveState() { save(STATE_KEY, state); }
+
+var items = [];       // {t, d, p, l3}
+var byTitle = {};
+
+/* ---------- helpers ---------- */
+var $ = function (id) { return document.getElementById(id); };
+function status(msg) { $("status").textContent = msg || ""; }
+function api(lang, params) {
+  var q = Object.assign({ format: "json", formatversion: "2", origin: "*" }, params);
+  var url = "https://" + lang + ".wikipedia.org/w/api.php?" + new URLSearchParams(q).toString();
+  return fetch(url).then(function (r) {
+    if (!r.ok) throw new Error("Wikipedia answered " + r.status);
+    return r.json();
+  }).then(function (j) {
+    if (j.error) throw new Error(j.error.info || j.error.code);
+    return j;
+  });
+}
+function normTitle(t) {
+  t = t.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/* ---------- vital article list parsing ---------- */
+function cleanHeading(h) {
+  return h.replace(/\{\{[^{}]*\}\}/g, "")
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
+    .replace(/'''?/g, "").replace(/\([^)]*\)/g, "")
+    .replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+function fetchWikitext(title) {
+  return api("en", { action: "parse", page: title, prop: "wikitext", redirects: "1" })
+    .then(function (j) { return j.parse.wikitext; });
+}
+function fetchVitalPage(names) {
+  var i = 0;
+  function tryNext(err) {
+    if (i >= names.length) return Promise.reject(err || new Error("not found"));
+    var n = names[i++];
+    return fetchWikitext(n).catch(tryNext);
+  }
+  return tryNext();
+}
+function variants(sub) {
+  return ["Wikipedia:Vital articles/Level/4/" + sub, "Wikipedia:Vital articles/Level 4/" + sub];
+}
+
+/* Parses one list page. Returns entries {t, path[]} and recurses into sub-pages. */
+function parseList(text, basePath, visited, depth) {
+  var out = [], subs = [];
+  var heads = [];
+  var seenHeading = false;
+  text.split("\n").forEach(function (line) {
+    var h = line.match(/^(={2,6})\s*(.*?)\s*\1\s*$/);
+    if (h) {
+      var lvl = h[1].length - 2;
+      heads = heads.slice(0, lvl);
+      heads[lvl] = cleanHeading(h[2]);
+      seenHeading = true;
+      return;
+    }
+    var path = basePath.concat(heads.filter(Boolean));
+    var trans = line.match(/\{\{:?(Wikipedia:Vital articles\/Level[ \/]4\/[^}|]+)/i);
+    if (trans) { subs.push({ page: trans[1].trim(), path: path }); return; }
+    if (!seenHeading || !/^[#*]/.test(line)) return;
+    var re = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g, m;
+    while ((m = re.exec(line))) {
+      var t = m[1].trim();
+      if (/^Wikipedia:Vital articles\/Level[ \/]4\//i.test(t)) { subs.push({ page: t, path: path }); break; }
+      if (/^(File|Image|Category|Wikipedia|Template|Help|Portal|User|Talk|Special|WP|:)/i.test(t)) continue;
+      out.push({ t: normTitle(t), path: path });
+      break;
+    }
+  });
+  if (depth >= 2 || !subs.length) return Promise.resolve(out);
+  var chain = Promise.resolve();
+  subs.forEach(function (s) {
+    var key = normTitle(s.page);
+    if (visited[key]) return;
+    visited[key] = 1;
+    chain = chain.then(function () {
+      return fetchWikitext(s.page).then(function (tx) {
+        var sub = s.page.split("/").pop();
+        return parseList(tx, s.path.length ? s.path : [sub], visited, depth + 1);
+      }).then(function (more) { out = out.concat(more); }).catch(function () {});
+    });
+  });
+  return chain.then(function () { return out; });
+}
+
+function buildLists() {
+  var all = [], done = 0;
+  var l3 = {};
+  var visited = {};
+  var jobs = SOURCES.map(function (src) {
+    return fetchVitalPage(variants(src.page)).then(function (tx) {
+      return parseList(tx, [], visited, 0);
+    }).then(function (entries) {
+      entries.forEach(function (e) {
+        var p = [src.page].concat(e.path).join(" › ");
+        var d = src.rule(p);
+        if (d) all.push([e.t, d, p]);
+      });
+      done++;
+      status("Loading topic lists… " + done + "/" + SOURCES.length);
+    }).catch(function () { done++; });
+  });
+  var l3job = fetchVitalPage(["Wikipedia:Vital articles/Level/3", "Wikipedia:Vital articles"]).then(function (tx) {
+    var re = /^[#*].*?\[\[([^\]|#]+)/gm, m;
+    while ((m = re.exec(tx))) l3[normTitle(m[1])] = 1;
+  }).catch(function () {});
+  return Promise.all(jobs.concat([l3job])).then(function () {
+    var seen = {}, list = [];
+    all.forEach(function (a) {
+      if (seen[a[0]]) return;
+      seen[a[0]] = 1;
+      list.push([a[0], a[1], a[2], l3[a[0]] ? 1 : 0]);
+    });
+    if (list.length < 200) throw new Error("Could not read the topic lists from Wikipedia.");
+    save(LISTS_KEY, { at: Date.now(), list: list });
+    return list;
+  });
+}
+
+function setItems(list) {
+  items = list.map(function (a) { return { t: a[0], d: a[1], p: a[2], l3: !!a[3] }; });
+  byTitle = {};
+  items.forEach(function (it) { byTitle[it.t] = it; });
+}
+
+function loadLists(force) {
+  var cached = load(LISTS_KEY);
+  if (!force && cached && cached.list && Date.now() - cached.at < LIST_TTL) {
+    setItems(cached.list);
+    return Promise.resolve();
+  }
+  status("Loading topic lists from Wikipedia (first time only)…");
+  return buildLists().then(setItems).catch(function (e) {
+    if (cached && cached.list) { setItems(cached.list); return; }
+    throw e;
+  });
+}
+
+/* ---------- recommender ---------- */
+function stats() {
+  var s = { d: {}, s1: {}, s2: {} };
+  function add(map, k, v) {
+    if (!k) return;
+    var o = map[k] || (map[k] = { sum: 0, n: 0 });
+    o.sum += v; o.n++;
+  }
+  Object.keys(state.ratings).forEach(function (t) {
+    var r = state.ratings[t];
+    var v = r.skip ? -0.6 : (r.r - 3);
+    var parts = (r.p || "").split(" › ");
+    add(s.d, r.d, v);
+    add(s.s1, parts.slice(0, 2).join(" › "), v);
+    add(s.s2, parts.slice(0, 3).join(" › "), v);
+  });
+  return s;
+}
+function shrunk(o, prior) { return o ? o.sum / (o.n + prior) : 0; }
+
+function weightOf(it, st, personal) {
+  var w = BASE[it.d] || 0.2;
+  if (it.l3) w *= L3_BONUS;
+  if (!personal) return w;
+  var parts = it.p.split(" › ");
+  var a = shrunk(st.d[it.d], 3), b = shrunk(st.s1[parts.slice(0, 2).join(" › ")], 2), c = shrunk(st.s2[parts.slice(0, 3).join(" › ")], 2);
+  return w * Math.exp(0.5 * a + 0.6 * b + 0.5 * c);
+}
+
+function whyText(it, st, personal) {
+  var parts = it.p.split(" › ");
+  if (!personal) return "Picked at random among important topics.";
+  var cands = [
+    { k: it.d, o: st.d[it.d] },
+    { k: parts.slice(0, 2).join(" › "), o: st.s1[parts.slice(0, 2).join(" › ")] },
+    { k: parts.slice(0, 3).join(" › "), o: st.s2[parts.slice(0, 3).join(" › ")] }
+  ].filter(function (c) { return c.o && c.o.n; });
+  cands.sort(function (x, y) { return (y.o.sum / y.o.n) - (x.o.sum / x.o.n); });
+  var bits = [];
+  if (cands.length && cands[0].o.sum > 0) bits.push("you liked " + cands[0].k.split(" › ").pop() + " (" + cands[0].o.n + " rated)");
+  if (it.l3) bits.push("one of the 1,000 most essential topics");
+  if (!bits.length) bits.push("exploring something new");
+  return "Why this: " + bits.join("; ") + ".";
+}
+
+function pickCandidates(personal, domain, n, exclude) {
+  var st = stats();
+  var pending = {};
+  state.kindle.forEach(function (k) { pending[k.t] = 1; });
+  var pool = items.filter(function (it) {
+    if (state.ratings[it.t] || pending[it.t] || (exclude && exclude[it.t])) return false;
+    if (domain) return it.d === domain;
+    if (!personal) return CORE.indexOf(it.d) >= 0;
+    return true;
+  });
+  var ws = pool.map(function (it) { return weightOf(it, st, personal); });
+  var picks = [];
+  for (var k = 0; k < n && pool.length; k++) {
+    var tot = ws.reduce(function (a, b) { return a + b; }, 0);
+    var x = Math.random() * tot, i = 0;
+    while (i < ws.length - 1 && (x -= ws[i]) > 0) i++;
+    picks.push(pool[i]);
+    pool.splice(i, 1); ws.splice(i, 1);
+  }
+  return { picks: picks, st: st };
+}
+
+/* Among a few weighted picks, prefer one whose article reads in 10-30 minutes. */
+function chooseByLength(picks) {
+  return api("en", { action: "query", prop: "info", redirects: "1", titles: picks.map(function (p) { return p.t; }).join("|") })
+    .then(function (j) {
+      var map = {};
+      (j.query.normalized || []).forEach(function (n) { map[n.from] = n.to; });
+      (j.query.redirects || []).forEach(function (r) { map[r.from] = r.to; });
+      var len = {};
+      (j.query.pages || []).forEach(function (pg) { len[pg.title] = pg.length || 0; });
+      function L(t) { var c = t; for (var g = 0; g < 3 && map[c]; g++) c = map[c]; return len[c] || 0; }
+      // wikitext bytes: roughly 25k-160k gives 10-30 minutes of prose once references are stripped
+      var good = picks.filter(function (p) { var l = L(p.t); return l >= 25000 && l <= 160000; });
+      return good[0] || picks.slice().sort(function (a, b) { return Math.abs(L(a.t) - 70000) - Math.abs(L(b.t) - 70000); })[0];
+    }).catch(function () { return picks[0]; });
+}
+
+/* ---------- article loading ---------- */
+var current = null;   // {key, it, lang, title, why}
+var backStack = [];
+
+function langTitle(enTitle, lang) {
+  if (lang === "en") return Promise.resolve(enTitle);
+  return api("en", { action: "query", prop: "langlinks", lllang: lang, redirects: "1", titles: enTitle })
+    .then(function (j) {
+      var pg = (j.query.pages || [])[0];
+      var ll = pg && pg.langlinks && pg.langlinks[0];
+      return ll ? ll.title : null;
+    });
+}
+
+var END_SECTIONS = /^(see also|references|notes|footnotes|citations|sources|further reading|external links|bibliography|works cited|notes and references|explanatory notes|voci correlate|note|bibliografia|altri progetti|collegamenti esterni|fonti|opere|filmografia|discografia|riferimenti)$/i;
+var BAD_NS = /^(File|Image|Category|Help|Wikipedia|Template|Special|Portal|Talk|User|Draft|Module|MediaWiki|Categoria|Aiuto|Portale|Speciale|Discussioni|Utente|Immagine|Progetto)[: ]/i;
+
+function cleanHtml(html, lang) {
+  var doc = new DOMParser().parseFromString(html, "text/html");
+  var root = doc.querySelector(".mw-parser-output") || doc.body;
+  var kill = ".infobox, .sinottico, .navbox, .navbox-styles, .vertical-navbox, .sidebar, .metadata, .ambox, .avviso, .hatnote, .dablink, .mw-editsection, sup.reference, sup.noprint, .reflist, .references, .mw-references-wrap, figure, .thumb, .gallery, img, .noprint, style, link, script, .mw-empty-elt, .shortdescription, .toc, #toc, .portal, .sistersitebox, .side-box, .mbox-small, .plainlinks.stub, .navigation-not-searchable, .noexcerpt, audio, video, .mw-kartographer-maplink, .mwe-math-fallback-image-inline, .reference";
+  root.querySelectorAll(kill).forEach(function (n) { n.remove(); });
+  // cut from the first "See also / References" heading onwards
+  var kids = Array.prototype.slice.call(root.children), cut = false;
+  kids.forEach(function (el) {
+    if (!cut) {
+      var h = el.matches("h2") ? el : (el.matches(".mw-heading2") ? el.querySelector("h2") : null);
+      if (h && END_SECTIONS.test(h.textContent.trim())) cut = true;
+    }
+    if (cut) el.remove();
+  });
+  root.querySelectorAll("[style]").forEach(function (n) { n.removeAttribute("style"); });
+  root.querySelectorAll("table").forEach(function (t) {
+    var w = doc.createElement("div"); w.className = "tablewrap";
+    t.parentNode.insertBefore(w, t); w.appendChild(t);
+  });
+  root.querySelectorAll("a").forEach(function (a) {
+    var href = a.getAttribute("href") || "";
+    if (a.classList.contains("new") || href.charAt(0) === "#" || !href) {
+      a.replaceWith(doc.createTextNode(a.textContent)); return;
+    }
+    var m = href.match(/^\/wiki\/([^#?]+)/);
+    if (m) {
+      var t = decodeURIComponent(m[1]).replace(/_/g, " ");
+      if (BAD_NS.test(t)) { a.replaceWith(doc.createTextNode(a.textContent)); return; }
+      a.setAttribute("href", "https://" + lang + ".wikipedia.org/wiki/" + m[1]);
+      a.setAttribute("data-inapp", t);
+      return;
+    }
+    if (href.indexOf("//") === 0) a.setAttribute("href", "https:" + href);
+    a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener");
+  });
+  // drop empty paragraphs left behind
+  root.querySelectorAll("p").forEach(function (p) { if (!p.textContent.trim()) p.remove(); });
+  return root.innerHTML;
+}
+
+function fetchArticle(title, lang) {
+  return api(lang, { action: "parse", page: title, prop: "text|displaytitle", redirects: "1", disableeditsection: "1", disabletoc: "1" })
+    .then(function (j) { return { title: j.parse.title, html: cleanHtml(j.parse.text, lang) }; });
+}
+
+function show(opts) {
+  // opts: {enTitle?, title?, lang, it?, why?, pushBack?}
+  var lang = opts.lang;
+  status("Loading “" + (opts.enTitle || opts.title) + "”…");
+  var titleP = opts.title ? Promise.resolve(opts.title) : langTitle(opts.enTitle, lang);
+  return titleP.then(function (t) {
+    var note = "";
+    if (!t) { note = "No Italian article for this topic, showing the English one. "; lang = "en"; t = opts.enTitle; }
+    return fetchArticle(t, lang).then(function (a) { return { a: a, lang: lang, note: note }; });
+  }).then(function (res) {
+    if (opts.pushBack && current) backStack.push(current);
+    var key = opts.it ? opts.it.t : (byTitle[normTitle(res.a.title)] ? normTitle(res.a.title) : (opts.key || null));
+    var it = opts.it || (key ? byTitle[key] : null);
+    current = { key: it ? it.t : normTitle(res.a.title), it: it, lang: res.lang, title: res.a.title, why: opts.why || "" };
+    render(res.a, res.note);
+    status("");
+    window.scrollTo(0, 0);
+  }).catch(function (e) {
+    status("Could not load the article: " + e.message + ". Check the connection and try again.");
+  });
+}
+
+function render(a, note) {
+  $("reader").hidden = false;
+  $("backrow").hidden = !backStack.length;
+  $("a-title").textContent = a.title;
+  $("article").innerHTML = a.html;
+  current.html = a.html;
+  var words = ($("article").textContent.match(/\S+/g) || []).length;
+  var mins = Math.max(1, Math.round(words / WPM));
+  var it = current.it;
+  var where = it ? (it.d + " · " + it.p.split(" › ").slice(1).join(" › ")) : "a detour, not on the list";
+  $("a-meta").textContent = where + " · about " + mins + " min" + (mins > TARGET_MAX ? " (long, read part of it if you like)" : "");
+  $("a-why").textContent = note + (current.why || "");
+  $("a-src").href = "https://" + current.lang + ".wikipedia.org/wiki/" + encodeURIComponent(a.title.replace(/ /g, "_"));
+  $("btn-otherlang").textContent = current.lang === "en" ? "Leggi in italiano" : "Read in English";
+  paintRating();
+  $("rate-msg").textContent = "";
+}
+
+function paintRating() {
+  var r = current && state.ratings[current.key];
+  document.querySelectorAll("#rate button[data-r]").forEach(function (b) {
+    b.classList.toggle("on", !!(r && !r.skip && r.r === +b.getAttribute("data-r")));
+  });
+}
+
+/* ---------- actions ---------- */
+function next(personal) {
+  if (!items.length) { status("Topic lists are not loaded yet."); return; }
+  var domain = $("domain").value;
+  var c = pickCandidates(personal, domain, 6);
+  if (!c.picks.length) { status("You have read everything in this area. Impressive."); return; }
+  status("Choosing…");
+  chooseByLength(c.picks).then(function (it) {
+    backStack = [];
+    show({ enTitle: it.t, lang: state.lang, it: it, why: whyText(it, c.st, personal) });
+  });
+}
+
+function rateKey(key, it, r, skip) {
+  state.ratings[key] = { r: r, skip: !!skip, d: it ? it.d : "detour", p: it ? it.p : "", at: Date.now() };
+  state.log.unshift({ t: key, at: Date.now() });
+  state.log = state.log.slice(0, 500);
+  state.kindle = state.kindle.filter(function (k) { return k.t !== key; });
+  saveState();
+}
+
+function rate(r, skip) {
+  if (!current) return;
+  rateKey(current.key, current.it, r, skip);
+  paintRating();
+  $("rate-msg").textContent = skip ? "Skipped. It will come up less for similar topics." : "Saved: " + r + "/5.";
+  renderSide();
+  if (skip) next(true);
+}
+
+/* ---------- Kindle (EPUB) ---------- */
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function toXhtml(html) {
+  var d = document.implementation.createHTMLDocument("x");
+  d.body.innerHTML = html;
+  d.body.querySelectorAll("[data-inapp]").forEach(function (a) { a.removeAttribute("data-inapp"); });
+  d.body.querySelectorAll("[id]").forEach(function (n) { if (!/^[A-Za-z_][\w.-]*$/.test(n.id)) n.removeAttribute("id"); });
+  var ser = new XMLSerializer(), out = "";
+  Array.prototype.forEach.call(d.body.childNodes, function (n) { out += ser.serializeToString(n); });
+  return out.replace(/ xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/g, "");
+}
+function uuid() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16);
+  });
+}
+function xhtmlDoc(title, lang, body) {
+  return '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="' + lang + '" lang="' + lang + '">\n<head><meta charset="utf-8"/><title>' + esc(title) + '</title><link rel="stylesheet" type="text/css" href="style.css"/></head>\n<body>\n' + body + '\n</body>\n</html>';
+}
+
+/* chapters: [{title, lang, html, meta}] */
+function buildEpub(bookTitle, lang, chapters) {
+  if (!window.JSZip) return Promise.reject(new Error("the ebook library did not load"));
+  var zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+  zip.file("META-INF/container.xml", '<?xml version="1.0" encoding="utf-8"?>\n<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+  zip.file("OEBPS/style.css", "body{font-family:serif;line-height:1.5}h1{font-size:1.5em;margin:0 0 .3em}h2{font-size:1.2em;margin-top:1.4em}h3{font-size:1.05em}.meta{font-size:.85em;color:#555;margin-bottom:1.2em}table{border-collapse:collapse;font-size:.85em}td,th{border:1px solid #999;padding:2px 4px}blockquote{margin-left:1em}");
+  var id = uuid();
+  var manifest = "", spine = "", navLis = "", ncxPts = "";
+  chapters.forEach(function (c, i) {
+    var f = "c" + (i + 1) + ".xhtml";
+    var xb = toXhtml(c.html);
+    var body = "<h1>" + esc(c.title) + "</h1>\n<p class=\"meta\">" + esc(c.meta) + "</p>\n" + xb +
+      "\n<p class=\"meta\">Source: Wikipedia, “" + esc(c.title) + "” (" + c.lang + ".wikipedia.org), CC BY-SA 4.0.</p>";
+    zip.file("OEBPS/" + f, xhtmlDoc(c.title, c.lang, body));
+    manifest += '<item id="c' + (i + 1) + '" href="' + f + '" media-type="application/xhtml+xml"' + (/<math[\s>]/.test(xb) ? ' properties="mathml"' : "") + '/>\n';
+    spine += '<itemref idref="c' + (i + 1) + '"/>\n';
+    navLis += '<li><a href="' + f + '">' + esc(c.title) + "</a></li>\n";
+    ncxPts += '<navPoint id="n' + (i + 1) + '" playOrder="' + (i + 1) + '"><navLabel><text>' + esc(c.title) + '</text></navLabel><content src="' + f + '"/></navPoint>\n';
+  });
+  zip.file("OEBPS/nav.xhtml", xhtmlDoc("Contents", lang, '<nav epub:type="toc" id="toc"><h1>Contents</h1><ol>\n' + navLis + "</ol></nav>"));
+  zip.file("OEBPS/toc.ncx", '<?xml version="1.0" encoding="utf-8"?>\n<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="urn:uuid:' + id + '"/></head><docTitle><text>' + esc(bookTitle) + "</text></docTitle><navMap>\n" + ncxPts + "</navMap></ncx>");
+  var modified = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  zip.file("OEBPS/content.opf", '<?xml version="1.0" encoding="utf-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="' + lang + '">\n<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n<dc:identifier id="uid">urn:uuid:' + id + "</dc:identifier>\n<dc:title>" + esc(bookTitle) + "</dc:title>\n<dc:language>" + lang + "</dc:language>\n<dc:creator>Wikipedia contributors</dc:creator>\n<meta property=\"dcterms:modified\">" + modified + '</meta>\n</metadata>\n<manifest>\n<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>\n<item id="css" href="style.css" media-type="text/css"/>\n' + manifest + '</manifest>\n<spine toc="ncx">\n<itemref idref="nav"/>\n' + spine + "</spine>\n</package>");
+  return zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+}
+
+function safeName(s) { return s.replace(/[^\wÀ-ſ -]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "article"; }
+
+/* Building is async, and iPhones only open the share sheet straight from a tap, so the file gets its own Share button. */
+function offerFile(blob, filename, sentItems) {
+  var file = new File([blob], filename, { type: "application/epub+zip" });
+  var box = $("kindle-out");
+  box.innerHTML = "";
+  var p = document.createElement("div");
+  p.appendChild(document.createTextNode("Ready: " + filename + " "));
+  var canShare = navigator.canShare && navigator.canShare({ files: [file] });
+  var markSent = function () {
+    sentItems.forEach(function (s) {
+      if (state.ratings[s.t] || state.kindle.some(function (k) { return k.t === s.t; })) return;
+      state.kindle.unshift(s);
+    });
+    saveState(); renderPending();
+  };
+  if (canShare) {
+    var b = document.createElement("button");
+    b.textContent = "Share to Kindle";
+    b.addEventListener("click", function () {
+      navigator.share({ files: [file], title: filename }).then(function () {
+        markSent(); box.innerHTML = "<small>Sent. Rate it here after reading.</small>";
+      }).catch(function (e) {
+        if (e && e.name === "AbortError") return;
+        status("Sharing failed: " + (e && e.message) + ". Use Save file instead.");
+      });
+    });
+    p.appendChild(b);
+  }
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(file); a.download = filename; a.textContent = canShare ? "or save file" : "Save file";
+  a.addEventListener("click", markSent);
+  p.appendChild(document.createTextNode(" "));
+  p.appendChild(a);
+  box.appendChild(p);
+  status("");
+  box.scrollIntoView({ block: "nearest" });
+}
+
+function mins(html) {
+  var d = document.createElement("div"); d.innerHTML = html;
+  return Math.max(1, Math.round(((d.textContent.match(/\S+/g) || []).length) / WPM));
+}
+function chapterMeta(it, html) {
+  return (it ? it.d + " · " + it.p.split(" › ").slice(1).join(" › ") + " · " : "") + "about " + mins(html) + " min";
+}
+
+function sendCurrent() {
+  if (!current || !current.html) return;
+  status("Making the ebook…");
+  var ch = [{ title: current.title, lang: current.lang, html: current.html, meta: chapterMeta(current.it, current.html) }];
+  buildEpub(current.title, current.lang, ch).then(function (blob) {
+    offerFile(blob, safeName(current.title) + ".epub", [{ t: current.key, title: current.title, lang: current.lang, at: Date.now() }]);
+  }).catch(function (e) { status("Could not make the ebook: " + e.message); });
+}
+
+function makeBundle() {
+  if (!items.length) { status("Topic lists are not loaded yet."); return; }
+  var n = +$("bundle-n").value, domain = $("domain").value, chosen = {}, chapters = [], sent = [];
+  var btn = $("btn-bundle"); btn.disabled = true;
+  $("kindle-out").innerHTML = "";
+  var chain = Promise.resolve();
+  for (var i = 0; i < n; i++) {
+    chain = chain.then(function () {
+      var c = pickCandidates(true, domain, 4, chosen);
+      if (!c.picks.length) return;
+      return chooseByLength(c.picks).then(function (it) {
+        chosen[it.t] = 1;
+        status("Fetching article " + (chapters.length + 1) + " of " + n + ": " + it.t + "…");
+        return langTitle(it.t, state.lang).then(function (t) {
+          var lang = t ? state.lang : "en";
+          return fetchArticle(t || it.t, lang).then(function (a) {
+            chapters.push({ title: a.title, lang: lang, html: a.html, meta: chapterMeta(it, a.html) });
+            sent.push({ t: it.t, title: a.title, lang: lang, at: Date.now() });
+          });
+        }).catch(function () {});
+      });
+    });
+  }
+  chain.then(function () {
+    if (!chapters.length) throw new Error("no articles could be fetched");
+    status("Making the ebook…");
+    var date = new Date().toISOString().slice(0, 10);
+    var total = chapters.reduce(function (s, c) { return s + mins(c.html); }, 0);
+    var title = "Vital Reader " + date;
+    return buildEpub(title + " (" + chapters.length + " articles, ~" + total + " min)", state.lang, chapters).then(function (blob) {
+      offerFile(blob, "vital-reader-" + date + ".epub", sent);
+    });
+  }).catch(function (e) { status("Could not make the bundle: " + e.message); })
+    .then(function () { btn.disabled = false; });
+}
+
+function renderPending() {
+  var box = $("pending");
+  box.innerHTML = "";
+  if (!state.kindle.length) { box.innerHTML = "<small>Nothing waiting.</small>"; return; }
+  state.kindle.forEach(function (k) {
+    var row = document.createElement("div");
+    var a = document.createElement("a"); a.href = "#"; a.textContent = k.title;
+    a.addEventListener("click", function (e) { e.preventDefault(); backStack = []; show({ title: k.title, lang: k.lang, it: byTitle[k.t], key: k.t, why: "Sent to your Kindle." }); });
+    row.appendChild(a);
+    row.appendChild(document.createTextNode(" "));
+    [1, 2, 3, 4, 5].forEach(function (r) {
+      var b = document.createElement("button"); b.textContent = r;
+      b.addEventListener("click", function () { rateKey(k.t, byTitle[k.t], r, false); renderPending(); renderSide(); });
+      row.appendChild(b);
+    });
+    var s = document.createElement("button"); s.textContent = "didn't read";
+    s.addEventListener("click", function () { rateKey(k.t, byTitle[k.t], 0, true); renderPending(); renderSide(); });
+    row.appendChild(s);
+    box.appendChild(row);
+  });
+}
+
+function renderSide() {
+  var h = $("hist");
+  var ts = Object.keys(state.ratings).sort(function (a, b) { return state.ratings[b].at - state.ratings[a].at; }).slice(0, 60);
+  if (!ts.length) { h.innerHTML = "<small>Nothing yet.</small>"; }
+  else {
+    var ul = document.createElement("ul"); ul.className = "hist";
+    ts.forEach(function (t) {
+      var r = state.ratings[t];
+      var li = document.createElement("li");
+      var a = document.createElement("a"); a.href = "#"; a.textContent = t;
+      a.addEventListener("click", function (e) { e.preventDefault(); backStack = []; show({ enTitle: t, lang: state.lang, it: byTitle[t], why: "From your reading history." }); });
+      li.appendChild(a);
+      li.appendChild(document.createTextNode(" — " + (r.skip ? "skipped" : r.r + "/5") + (r.d ? " · " + r.d : "")));
+      ul.appendChild(li);
+    });
+    h.innerHTML = ""; h.appendChild(ul);
+  }
+  var st = stats(), tt = $("taste");
+  var rows = [];
+  Object.keys(st.d).forEach(function (k) { rows.push(["area", k, st.d[k]]); });
+  Object.keys(st.s1).forEach(function (k) { if (k.indexOf(" › ") > 0) rows.push(["section", k, st.s1[k]]); });
+  rows.sort(function (a, b) { return b[2].sum / b[2].n - a[2].sum / a[2].n; });
+  if (!rows.length) { tt.innerHTML = "<small>Rate a few articles and this fills in.</small>"; return; }
+  var ul2 = document.createElement("ul"); ul2.className = "hist";
+  rows.slice(0, 30).forEach(function (r) {
+    var li = document.createElement("li");
+    li.textContent = r[1].split(" › ").slice(-2).join(" › ") + ": avg " + (3 + r[2].sum / r[2].n).toFixed(1) + " over " + r[2].n;
+    ul2.appendChild(li);
+  });
+  var n = Object.keys(state.ratings).length;
+  tt.innerHTML = "<small>" + n + " rated out of " + items.length + " topics.</small>";
+  tt.appendChild(ul2);
+}
+
+/* ---------- wiring ---------- */
+$("btn-pick").addEventListener("click", function () { next(true); });
+$("btn-next2").addEventListener("click", function () { next(true); });
+$("btn-surprise").addEventListener("click", function () { next(false); });
+$("btn-skip").addEventListener("click", function () { rate(0, true); });
+$("btn-kindle1").addEventListener("click", sendCurrent);
+$("btn-bundle").addEventListener("click", makeBundle);
+renderPending();
+document.querySelectorAll("#rate button[data-r]").forEach(function (b) {
+  b.addEventListener("click", function () { rate(+b.getAttribute("data-r"), false); });
+});
+$("btn-back").addEventListener("click", function () {
+  var prev = backStack.pop();
+  if (prev) show({ title: prev.title, lang: prev.lang, it: prev.it, why: prev.why, key: prev.key });
+});
+$("btn-otherlang").addEventListener("click", function () {
+  if (!current) return;
+  var to = current.lang === "en" ? "it" : "en";
+  api(current.lang, { action: "query", prop: "langlinks", lllang: to, redirects: "1", titles: current.title }).then(function (j) {
+    var pg = (j.query.pages || [])[0];
+    var ll = pg && pg.langlinks && pg.langlinks[0];
+    if (!ll) { status(to === "it" ? "No Italian version of this article." : "No English version of this article."); return; }
+    show({ title: ll.title, lang: to, it: current.it, why: current.why, key: current.key });
+  }).catch(function (e) { status("Could not switch language: " + e.message); });
+});
+$("article").addEventListener("click", function (e) {
+  var a = e.target.closest("a[data-inapp]");
+  if (!a) return;
+  e.preventDefault();
+  var t = a.getAttribute("data-inapp");
+  show({ title: t, lang: current.lang, pushBack: true, why: "A detour from “" + current.title + "”." });
+});
+["en", "it"].forEach(function (l) {
+  var r = $("lang-" + l);
+  r.checked = state.lang === l;
+  r.addEventListener("change", function () { if (r.checked) { state.lang = l; saveState(); } });
+});
+$("btn-export").addEventListener("click", function () { $("backup").value = JSON.stringify(state); });
+$("btn-copy").addEventListener("click", function () {
+  var v = JSON.stringify(state); $("backup").value = v;
+  (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () {
+    $("set-msg").textContent = "Copied.";
+  }).catch(function () { $("backup").select(); $("set-msg").textContent = "Text selected, copy it by hand."; });
+});
+$("btn-import").addEventListener("click", function () {
+  try {
+    var s = JSON.parse($("backup").value);
+    if (!s || typeof s.ratings !== "object") throw new Error();
+    state = s; state.log = state.log || []; state.lang = state.lang || "en"; state.kindle = state.kindle || [];
+    saveState(); renderSide(); renderPending();
+    $("set-msg").textContent = "Restored " + Object.keys(state.ratings).length + " ratings.";
+  } catch (e) { $("set-msg").textContent = "That text is not a valid backup."; }
+});
+$("btn-reload-lists").addEventListener("click", function () {
+  $("set-msg").textContent = "Reloading…";
+  loadLists(true).then(function () { $("set-msg").textContent = items.length + " topics loaded."; status(""); renderSide(); })
+    .catch(function (e) { $("set-msg").textContent = e.message; });
+});
+
+loadLists(false).then(function () {
+  var counts = {};
+  items.forEach(function (it) { counts[it.d] = (counts[it.d] || 0) + 1; });
+  status(items.length + " topics ready. Press “Next for me”.");
+  renderSide();
+}).catch(function (e) {
+  status(e.message + " Check the connection and reload the page.");
+});
+
+window.__vr = { parseList: parseList, cleanHeading: cleanHeading };
+})();
+</script>
+</body>
+</html>
