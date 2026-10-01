@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Vital Reader</title>
 <style>
-/* Plain 1996 page, but soft on the eyes: dim paper, dark grey ink, default fonts and buttons. */
+/* Plain 1996 page, soft on the eyes: dim paper, dark grey ink, default fonts and buttons. */
 :root {
   --bg: #ece6d9;
   --fg: #2b2a27;
@@ -17,10 +17,11 @@
   --visited: #5b3a7a;
   --rule: #b9b1a2;
   --mark: #d9cfb8;
+  --hl: #e3d9a8;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #1d1c1a; --fg: #cfc8ba; --muted: #8d877b; --link: #8fb1dc; --visited: #b89ad1; --rule: #45423c; --mark: #34312b; color-scheme: dark; }
+  :root { --bg: #1d1c1a; --fg: #cfc8ba; --muted: #8d877b; --link: #8fb1dc; --visited: #b89ad1; --rule: #45423c; --mark: #34312b; --hl: #4a4326; color-scheme: dark; }
 }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -28,114 +29,202 @@ body {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 19px; line-height: 1.55;
   margin: 0;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px calc(env(safe-area-inset-bottom, 0px) + 70px);
 }
 main { max-width: 36em; margin: 0 auto; }
 a { color: var(--link); }
 a:visited { color: var(--visited); }
 hr { border: 0; border-top: 1px solid var(--rule); margin: 1em 0; }
-button, select { font-size: 16px; margin: 2px 2px 2px 0; }
+button, select, input { font-size: 16px; margin: 2px 2px 2px 0; }
 small, .meta { color: var(--muted); font-size: 15px; }
 h1 { font-size: 1.6em; line-height: 1.2; margin: .3em 0 .2em; font-weight: normal; }
-#article h2, #article .mw-heading2 h2 { font-size: 1.3em; font-weight: normal; border-bottom: 1px solid var(--rule); margin-top: 1.6em; }
+h2.v { font-size: 1.25em; font-weight: normal; margin: .4em 0; }
+nav { font-size: 16px; }
+nav a.on { color: var(--fg); font-weight: bold; text-decoration: none; }
+#article h2 { font-size: 1.3em; font-weight: normal; border-bottom: 1px solid var(--rule); margin-top: 1.6em; }
 #article h3 { font-size: 1.1em; margin-top: 1.3em; }
 #article h4, #article h5 { font-size: 1em; }
 #article table { font-size: 15px; border-collapse: collapse; }
 #article td, #article th { border: 1px solid var(--rule); padding: 2px 5px; vertical-align: top; }
 .tablewrap { overflow-x: auto; max-width: 100%; }
-#article blockquote { margin-left: 1em; color: var(--muted); }
+blockquote { margin: .4em 0 .4em 1em; padding-left: .6em; border-left: 2px solid var(--rule); color: var(--muted); }
 #article dd { margin-left: 1em; }
 .rate button { min-width: 2.4em; }
 .rate button.on { background: var(--mark); font-weight: bold; }
 #status { color: var(--muted); font-size: 15px; min-height: 1.2em; }
-textarea { width: 100%; font-size: 13px; height: 7em; box-sizing: border-box; }
+textarea { width: 100%; font-size: 16px; box-sizing: border-box; font-family: inherit; }
+#backup { font-size: 13px; height: 6em; font-family: monospace; }
 details { margin: .6em 0; }
 summary { cursor: pointer; }
-ul.hist { padding-left: 1.2em; font-size: 16px; }
+ul.plain { padding-left: 1.2em; font-size: 16px; }
+.prev { background: var(--mark); padding: .4em .6em; font-size: 16px; margin: .5em 0; }
+.entry { margin: 0 0 1.1em; font-size: 17px; }
+.entry .note { margin: .2em 0; }
+pre.bars { font-size: 13px; line-height: 1.45; overflow-x: auto; margin: .3em 0; }
+.tl { font-size: 16px; }
+.tl .c { margin-top: .8em; color: var(--muted); font-size: 15px; border-bottom: 1px dotted var(--rule); }
+.tl .y { display: inline-block; min-width: 8.5em; font-family: monospace; font-size: 14px; color: var(--muted); }
+.cloze { background: var(--hl); padding: .3em .5em; }
+#passbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 8px); background: var(--mark); border-top: 1px solid var(--rule); text-align: center; }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 60px); background: var(--fg); color: var(--bg); padding: 4px 12px; font-size: 15px; }
+mark { background: var(--hl); color: inherit; }
 </style>
 </head>
 <body>
 <main>
-  <div>
-    <b>Vital Reader</b>
+  <div><b>Vital Reader</b> <small id="statline"></small>
     <small>&middot; <label><input type="radio" name="lang" value="en" id="lang-en"> EN</label>
     <label><input type="radio" name="lang" value="it" id="lang-it"> IT</label></small>
   </div>
-  <div>
-    <button id="btn-pick">Next for me</button>
-    <button id="btn-surprise">Surprise me</button>
-    <select id="domain">
-      <option value="">any area</option>
-      <option value="history">history</option>
-      <option value="philosophy">philosophy</option>
-      <option value="art">art</option>
-      <option value="geography">geography</option>
-      <option value="literature">literature</option>
-      <option value="music">music</option>
-      <option value="science">science</option>
-    </select>
-  </div>
-  <div id="status">Loading the list of important topics&hellip;</div>
-  <div id="kindle-out"></div>
+  <nav id="nav">
+    <a href="#read">Read</a> &middot;
+    <a href="#recall">Recall<span id="due-n"></span></a> &middot;
+    <a href="#notes">Notebook</a> &middot;
+    <a href="#map">Map</a> &middot;
+    <a href="#time">Timeline</a> &middot;
+    <a href="#more">More</a>
+  </nav>
   <hr>
 
-  <div id="reader" hidden>
-    <div id="backrow" hidden><button id="btn-back">&larr; back</button></div>
-    <h1 id="a-title"></h1>
-    <div class="meta" id="a-meta"></div>
-    <div class="meta" id="a-why"></div>
-    <div class="meta">
-      <button id="btn-otherlang"></button>
-      <button id="btn-kindle1">Send to Kindle</button>
-      <a id="a-src" href="#" target="_blank" rel="noopener">open on Wikipedia</a>
+  <!-- ===================== READ ===================== -->
+  <section id="v-read">
+    <div id="due-nudge" hidden><a href="#recall" id="due-link"></a></div>
+    <div>
+      <button id="btn-pick">Next for me</button>
+      <button id="btn-surprise">Surprise me</button>
+      <button id="btn-gap">Fill a gap</button>
+      <select id="domain" aria-label="Area">
+        <option value="">any area</option>
+        <option value="history">history</option>
+        <option value="philosophy">philosophy</option>
+        <option value="art">art</option>
+        <option value="geography">geography</option>
+        <option value="literature">literature</option>
+        <option value="music">music</option>
+        <option value="science">science</option>
+      </select>
     </div>
+    <div id="status">Loading the list of important topics&hellip;</div>
+    <div id="kindle-out"></div>
     <hr>
-    <div id="article"></div>
-    <hr>
-    <div id="ratebox">
-      <div>How interesting was it?</div>
-      <div class="rate" id="rate">
-        <button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button><button data-r="4">4</button><button data-r="5">5</button>
-        <button id="btn-skip">not now, skip</button>
-      </div>
-      <small id="rate-msg"></small>
-    </div>
-    <div><button id="btn-next2">Next for me</button></div>
-    <hr>
-  </div>
 
-  <details id="d-kindle" open><summary>Kindle</summary>
-    <div>Bundle of
-      <select id="bundle-n"><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option></select>
-      articles picked for me <button id="btn-bundle">Make Kindle bundle</button></div>
-    <small>When the file is ready, tap Share and pick the Kindle app. Or pick Mail and send it to your @kindle.com address.</small>
-    <div><b>On my Kindle, not rated yet</b></div>
-    <div id="pending"></div>
-  </details>
-  <details id="d-hist"><summary>What I've read</summary><div id="hist"></div></details>
-  <details id="d-taste"><summary>What it has learned about me</summary><div id="taste"></div></details>
-  <details><summary>Backup and settings</summary>
-    <p><small>Ratings live only in this browser. Copy this text somewhere safe now and then, and paste it back to restore.</small></p>
-    <textarea id="backup" spellcheck="false"></textarea>
-    <div><button id="btn-export">Show backup</button><button id="btn-copy">Copy</button><button id="btn-import">Restore from text</button></div>
-    <p><button id="btn-reload-lists">Reload topic lists from Wikipedia</button></p>
+    <div id="reader" hidden>
+      <div id="backrow" hidden><button id="btn-back">&larr; back</button></div>
+      <div class="meta" id="a-thread"></div>
+      <h1 id="a-title"></h1>
+      <div class="meta" id="a-meta"></div>
+      <div class="meta" id="a-when"></div>
+      <div class="meta" id="a-why"></div>
+      <div class="prev" id="a-prev" hidden></div>
+      <div class="meta">
+        <button id="btn-otherlang"></button>
+        <button id="btn-later">Later</button>
+        <button id="btn-kindle1">Send to Kindle</button>
+        <a id="a-src" href="#" target="_blank" rel="noopener">Wikipedia</a>
+      </div>
+      <hr>
+      <div id="article"></div>
+      <hr>
+      <div id="ratebox">
+        <div>How interesting was it?</div>
+        <div class="rate" id="rate">
+          <button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button><button data-r="4">4</button><button data-r="5">5</button>
+          <button id="btn-skip">not for me</button>
+        </div>
+        <small id="rate-msg"></small>
+        <div>
+          <label for="note">One line you want to keep:</label>
+          <textarea id="note" rows="2" placeholder="e.g. Westphalia made the sovereign state the basic unit of Europe"></textarea>
+          <button id="btn-note">Save note</button> <small id="note-msg"></small>
+        </div>
+      </div>
+      <p class="meta" id="deeper"></p>
+      <div id="thread-box"></div>
+      <div><button id="btn-next2">Next for me</button></div>
+      <hr>
+    </div>
+
+    <details id="d-later"><summary>Later (<span id="later-n">0</span>)</summary><div id="later"></div></details>
+    <details id="d-kindle"><summary>Kindle</summary>
+      <div>Bundle of
+        <select id="bundle-n" aria-label="Articles in bundle"><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option></select>
+        articles picked for me <button id="btn-bundle">Make Kindle bundle</button></div>
+      <small>When the file is ready, tap Share and pick the Kindle app. Or pick Mail and send it to your @kindle.com address.</small>
+      <div><b>On my Kindle, not rated yet</b></div>
+      <div id="pending"></div>
+    </details>
+  </section>
+
+  <!-- ===================== RECALL ===================== -->
+  <section id="v-recall" hidden><div id="recall"></div></section>
+
+  <!-- ===================== NOTEBOOK ===================== -->
+  <section id="v-notes" hidden>
+    <h2 class="v">Notebook</h2>
+    <div>
+      <input id="q" type="search" placeholder="search titles, notes, passages" aria-label="Search notebook">
+      <label><input type="checkbox" id="only-notes"> only with notes</label>
+    </div>
+    <div><button id="btn-export-notes">Export notebook</button> <small id="notes-msg"></small></div>
+    <hr>
+    <div id="notes"></div>
+  </section>
+
+  <!-- ===================== MAP ===================== -->
+  <section id="v-map" hidden>
+    <h2 class="v">What I've covered</h2>
+    <div id="map"></div>
+    <hr>
+    <h2 class="v">What it has learned about me</h2>
+    <div id="taste"></div>
+  </section>
+
+  <!-- ===================== TIMELINE ===================== -->
+  <section id="v-time" hidden>
+    <h2 class="v">My reading, in time</h2>
+    <div><button id="btn-dates">Look up missing dates</button> <small id="dates-msg"></small></div>
+    <div id="timeline" class="tl"></div>
+  </section>
+
+  <!-- ===================== MORE ===================== -->
+  <section id="v-more" hidden>
+    <h2 class="v">Numbers</h2>
+    <div id="numbers"></div>
+    <h2 class="v">Text size</h2>
+    <div><button id="fs-down">A&minus;</button><button id="fs-up">A+</button> <small id="fs-now"></small></div>
+    <h2 class="v">Offline</h2>
+    <div id="offline"></div>
+    <h2 class="v">Backup</h2>
+    <p><small>Everything lives only on this phone. Save a backup file now and then (Files or iCloud Drive).</small></p>
+    <div><button id="btn-backup-file">Save backup file</button>
+      <label>Restore from file <input type="file" id="restore-file" accept=".json,application/json"></label></div>
+    <details><summary>Backup as text</summary>
+      <textarea id="backup" spellcheck="false"></textarea>
+      <div><button id="btn-export">Show</button><button id="btn-copy">Copy</button><button id="btn-import">Restore from text</button></div>
+    </details>
     <small id="set-msg"></small>
-  </details>
-  <p><small>Topics come from Wikipedia's list of Vital Articles (Level 4, about 10,000 topics chosen by editors as the most important). Level 3 topics, the 1,000 most essential, come up more often. Text is from Wikipedia, CC BY-SA.</small></p>
+    <h2 class="v">Topic lists</h2>
+    <p><button id="btn-reload-lists">Reload from Wikipedia</button></p>
+    <p><small>Topics come from Wikipedia's Vital Articles (Level 4, about 10,000 topics chosen by editors as the most important). Level 3 topics, the 1,000 most essential, come up more often. Text is from Wikipedia, CC BY-SA. Dates come from Wikidata.</small></p>
+  </section>
 </main>
+
+<div id="passbar" hidden><button id="btn-pass">Save selected passage</button></div>
+<div id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 (function () {
 "use strict";
 
-/* ---------- config ---------- */
-var BASE = { history: 1, philosophy: 1, art: 1, geography: 1, literature: 0.3, music: 0.3, science: 0.3 };
-var CORE = ["history", "philosophy", "art", "geography"];
-var L3_BONUS = 1.8;
-var TARGET_MIN = 10, TARGET_MAX = 30, WPM = 230;
-var LISTS_KEY = "vr_lists_v1", STATE_KEY = "vr_state_v1";
-var LIST_TTL = 30 * 86400000;
+/* ================= config ================= */
+const BASE = { history: 1, philosophy: 1, art: 1, geography: 1, literature: 0.3, music: 0.3, science: 0.3 };
+const CORE = ["history", "philosophy", "art", "geography"];
+const AREAS = ["history", "philosophy", "art", "geography", "literature", "music", "science"];
+const L3_BONUS = 1.8, WPM = 230, TARGET_MAX = 30, QUEUE_SIZE = 3;
+const LISTS_KEY = "vr_lists_v1", STATE_KEY = "vr_state_v1";
+const DAY = 86400000, LIST_TTL = 30 * DAY;
+const SEP = " › ";
 
 function artsRule(p) {
   if (/literat|poet|novel|drama|theat|fiction|writ|epic|prose/i.test(p)) return "literature";
@@ -151,8 +240,8 @@ function peopleRule(p) {
   if (/politic|leader|military|explorer|religio|revolution|ruler|monarch|activist|reformer|historical/i.test(p)) return "history";
   return null;
 }
-function fixed(d) { return function () { return d; }; }
-var SOURCES = [
+const fixed = d => () => d;
+const SOURCES = [
   { page: "History", rule: fixed("history") },
   { page: "Geography", rule: fixed("geography") },
   { page: "Arts", rule: artsRule },
@@ -163,40 +252,112 @@ var SOURCES = [
   { page: "Mathematics", rule: fixed("science") }
 ];
 
-/* ---------- storage ---------- */
-function load(key) { try { var s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+/* ================= storage ================= */
+function load(key) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch (e) { return false; } }
 
-var state = load(STATE_KEY) || {};
-state.ratings = state.ratings || {};   // title -> {r, d, p, at, skip}
-state.lang = state.lang || "en";
-state.log = state.log || [];           // [{t, at}]
-state.kindle = state.kindle || [];     // sent to Kindle, waiting for a rating: [{t, title, lang, at}]
-function saveState() { save(STATE_KEY, state); }
+let state = load(STATE_KEY) || {};
+function fillState() {
+  const def = { ratings: {}, lang: "en", log: [], kindle: [], notes: {}, quotes: [], cards: {}, seen: {}, dates: {}, later: [], queue: [], days: {}, recalls: {}, fs: 19, cur: null };
+  Object.keys(def).forEach(k => { if (state[k] === undefined || state[k] === null && k !== "cur") state[k] = def[k]; });
+}
+fillState();
+function saveState() {
+  if (!save(STATE_KEY, state)) toast("Could not save. Storage may be full.");
+}
 
-var items = [];       // {t, d, p, l3}
-var byTitle = {};
+/* tiny IndexedDB key-value store for article HTML (offline queue, resume) */
+const idb = (() => {
+  let dbp = null;
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open("vital-reader", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("a");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+    return dbp;
+  }
+  function run(mode, fn) {
+    return open().then(db => new Promise((res, rej) => {
+      const t = db.transaction("a", mode), req = fn(t.objectStore("a"));
+      t.oncomplete = () => res(req ? req.result : undefined);
+      t.onerror = () => rej(t.error);
+    }));
+  }
+  return {
+    get: k => run("readonly", s => s.get(k)).catch(() => null),
+    put: (k, v) => run("readwrite", s => s.put(v, k)).catch(() => null),
+    del: k => run("readwrite", s => s.delete(k)).catch(() => null)
+  };
+})();
 
-/* ---------- helpers ---------- */
-var $ = function (id) { return document.getElementById(id); };
+let items = [], byTitle = {};
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
 function status(msg) { $("status").textContent = msg || ""; }
+let toastT = 0;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
+}
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  if (attrs) Object.keys(attrs).forEach(k => {
+    if (k === "on") Object.keys(attrs.on).forEach(ev => e.addEventListener(ev, attrs.on[ev]));
+    else if (k === "text") e.textContent = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  });
+  kids.forEach(k => { if (k != null) e.appendChild(typeof k === "string" ? document.createTextNode(k) : k); });
+  return e;
+}
+function button(label, fn) { return el("button", { on: { click: fn } }, label); }
+function linkTo(label, fn) { return el("a", { href: "#", on: { click: e => { e.preventDefault(); fn(); } } }, label); }
 function api(lang, params) {
-  var q = Object.assign({ format: "json", formatversion: "2", origin: "*" }, params);
-  var url = "https://" + lang + ".wikipedia.org/w/api.php?" + new URLSearchParams(q).toString();
-  return fetch(url).then(function (r) {
+  const q = Object.assign({ format: "json", formatversion: "2", origin: "*" }, params);
+  const url = "https://" + lang + ".wikipedia.org/w/api.php?" + new URLSearchParams(q).toString();
+  return fetch(url).then(r => {
     if (!r.ok) throw new Error("Wikipedia answered " + r.status);
     return r.json();
-  }).then(function (j) {
+  }).then(j => {
     if (j.error) throw new Error(j.error.info || j.error.code);
     return j;
   });
 }
 function normTitle(t) {
-  t = t.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  t = String(t).replace(/_/g, " ").replace(/\s+/g, " ").trim();
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
+function today(d) {
+  d = d || new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function ago(ts) {
+  const d = Math.round((Date.now() - ts) / DAY);
+  return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago";
+}
+function fmtDate(ts) { return new Date(ts).toLocaleDateString(state.lang === "it" ? "it-IT" : "en-GB", { day: "numeric", month: "short", year: "numeric" }); }
+function areaOf(key) { const it = byTitle[key]; const r = state.ratings[key]; return it ? it.d : (r && r.d) || "detour"; }
+function pathOf(key) { const it = byTitle[key]; const r = state.ratings[key]; return it ? it.p : (r && r.p) || ""; }
+function sectionOf(p) { return p.split(SEP).slice(0, 2).join(SEP); }
+function isRead(key) { const r = state.ratings[key]; return !!(r && !r.skip); }
+function shuffleWeighted(pool, ws, n) {
+  pool = pool.slice(); ws = ws.slice();
+  const out = [];
+  for (let k = 0; k < n && pool.length; k++) {
+    const tot = ws.reduce((a, b) => a + b, 0);
+    let x = Math.random() * tot, i = 0;
+    while (i < ws.length - 1 && (x -= ws[i]) > 0) i++;
+    out.push(pool[i]); pool.splice(i, 1); ws.splice(i, 1);
+  }
+  return out;
+}
 
-/* ---------- vital article list parsing ---------- */
+/* ================= vital article lists ================= */
 function cleanHeading(h) {
   return h.replace(/\{\{[^{}]*\}\}/g, "")
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
@@ -204,245 +365,235 @@ function cleanHeading(h) {
     .replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
 function fetchWikitext(title) {
-  return api("en", { action: "parse", page: title, prop: "wikitext", redirects: "1" })
-    .then(function (j) { return j.parse.wikitext; });
+  return api("en", { action: "parse", page: title, prop: "wikitext", redirects: "1" }).then(j => j.parse.wikitext);
 }
 function fetchVitalPage(names) {
-  var i = 0;
-  function tryNext(err) {
+  let i = 0;
+  const tryNext = err => {
     if (i >= names.length) return Promise.reject(err || new Error("not found"));
-    var n = names[i++];
-    return fetchWikitext(n).catch(tryNext);
-  }
+    return fetchWikitext(names[i++]).catch(tryNext);
+  };
   return tryNext();
 }
-function variants(sub) {
-  return ["Wikipedia:Vital articles/Level/4/" + sub, "Wikipedia:Vital articles/Level 4/" + sub];
-}
+const variants = sub => ["Wikipedia:Vital articles/Level/4/" + sub, "Wikipedia:Vital articles/Level 4/" + sub];
 
-/* Parses one list page. Returns entries {t, path[]} and recurses into sub-pages. */
 function parseList(text, basePath, visited, depth) {
-  var out = [], subs = [];
-  var heads = [];
-  var seenHeading = false;
-  text.split("\n").forEach(function (line) {
-    var h = line.match(/^(={2,6})\s*(.*?)\s*\1\s*$/);
+  let out = [];
+  const subs = [];
+  let heads = [], seenHeading = false;
+  text.split("\n").forEach(line => {
+    const h = line.match(/^(={2,6})\s*(.*?)\s*\1\s*$/);
     if (h) {
-      var lvl = h[1].length - 2;
+      const lvl = h[1].length - 2;
       heads = heads.slice(0, lvl);
       heads[lvl] = cleanHeading(h[2]);
       seenHeading = true;
       return;
     }
-    var path = basePath.concat(heads.filter(Boolean));
-    var trans = line.match(/\{\{:?(Wikipedia:Vital articles\/Level[ \/]4\/[^}|]+)/i);
-    if (trans) { subs.push({ page: trans[1].trim(), path: path }); return; }
+    const path = basePath.concat(heads.filter(Boolean));
+    const trans = line.match(/\{\{:?(Wikipedia:Vital articles\/Level[ \/]4\/[^}|]+)/i);
+    if (trans) { subs.push({ page: trans[1].trim(), path }); return; }
     if (!seenHeading || !/^[#*]/.test(line)) return;
-    var re = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g, m;
+    const re = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g;
+    let m;
     while ((m = re.exec(line))) {
-      var t = m[1].trim();
-      if (/^Wikipedia:Vital articles\/Level[ \/]4\//i.test(t)) { subs.push({ page: t, path: path }); break; }
+      const t = m[1].trim();
+      if (/^Wikipedia:Vital articles\/Level[ \/]4\//i.test(t)) { subs.push({ page: t, path }); break; }
       if (/^(File|Image|Category|Wikipedia|Template|Help|Portal|User|Talk|Special|WP|:)/i.test(t)) continue;
-      out.push({ t: normTitle(t), path: path });
+      out.push({ t: normTitle(t), path });
       break;
     }
   });
   if (depth >= 2 || !subs.length) return Promise.resolve(out);
-  var chain = Promise.resolve();
-  subs.forEach(function (s) {
-    var key = normTitle(s.page);
+  let chain = Promise.resolve();
+  subs.forEach(s => {
+    const key = normTitle(s.page);
     if (visited[key]) return;
     visited[key] = 1;
-    chain = chain.then(function () {
-      return fetchWikitext(s.page).then(function (tx) {
-        var sub = s.page.split("/").pop();
-        return parseList(tx, s.path.length ? s.path : [sub], visited, depth + 1);
-      }).then(function (more) { out = out.concat(more); }).catch(function () {});
-    });
+    chain = chain.then(() => fetchWikitext(s.page).then(tx => {
+      const sub = s.page.split("/").pop();
+      return parseList(tx, s.path.length ? s.path : [sub], visited, depth + 1);
+    }).then(more => { out = out.concat(more); }).catch(() => {}));
   });
-  return chain.then(function () { return out; });
+  return chain.then(() => out);
 }
 
 function buildLists() {
-  var all = [], done = 0;
-  var l3 = {};
-  var visited = {};
-  var jobs = SOURCES.map(function (src) {
-    return fetchVitalPage(variants(src.page)).then(function (tx) {
-      return parseList(tx, [], visited, 0);
-    }).then(function (entries) {
-      entries.forEach(function (e) {
-        var p = [src.page].concat(e.path).join(" › ");
-        var d = src.rule(p);
+  const all = [], l3 = {}, visited = {};
+  let done = 0;
+  const jobs = SOURCES.map(src => fetchVitalPage(variants(src.page))
+    .then(tx => parseList(tx, [], visited, 0))
+    .then(entries => {
+      entries.forEach(e => {
+        const p = [src.page].concat(e.path).join(SEP);
+        const d = src.rule(p);
         if (d) all.push([e.t, d, p]);
       });
       done++;
       status("Loading topic lists… " + done + "/" + SOURCES.length);
-    }).catch(function () { done++; });
-  });
-  var l3job = fetchVitalPage(["Wikipedia:Vital articles/Level/3", "Wikipedia:Vital articles"]).then(function (tx) {
-    var re = /^[#*].*?\[\[([^\]|#]+)/gm, m;
+    }).catch(() => { done++; }));
+  const l3job = fetchVitalPage(["Wikipedia:Vital articles/Level/3", "Wikipedia:Vital articles"]).then(tx => {
+    const re = /^[#*].*?\[\[([^\]|#]+)/gm;
+    let m;
     while ((m = re.exec(tx))) l3[normTitle(m[1])] = 1;
-  }).catch(function () {});
-  return Promise.all(jobs.concat([l3job])).then(function () {
-    var seen = {}, list = [];
-    all.forEach(function (a) {
+  }).catch(() => {});
+  return Promise.all(jobs.concat([l3job])).then(() => {
+    const seen = {}, list = [];
+    all.forEach(a => {
       if (seen[a[0]]) return;
       seen[a[0]] = 1;
       list.push([a[0], a[1], a[2], l3[a[0]] ? 1 : 0]);
     });
     if (list.length < 200) throw new Error("Could not read the topic lists from Wikipedia.");
-    save(LISTS_KEY, { at: Date.now(), list: list });
+    save(LISTS_KEY, { at: Date.now(), list });
     return list;
   });
 }
-
 function setItems(list) {
-  items = list.map(function (a) { return { t: a[0], d: a[1], p: a[2], l3: !!a[3] }; });
+  items = list.map(a => ({ t: a[0], d: a[1], p: a[2], l3: !!a[3] }));
   byTitle = {};
-  items.forEach(function (it) { byTitle[it.t] = it; });
+  items.forEach(it => { byTitle[it.t] = it; });
 }
-
 function loadLists(force) {
-  var cached = load(LISTS_KEY);
-  if (!force && cached && cached.list && Date.now() - cached.at < LIST_TTL) {
-    setItems(cached.list);
-    return Promise.resolve();
-  }
+  const cached = load(LISTS_KEY);
+  if (!force && cached && cached.list && Date.now() - cached.at < LIST_TTL) { setItems(cached.list); return Promise.resolve(); }
   status("Loading topic lists from Wikipedia (first time only)…");
-  return buildLists().then(setItems).catch(function (e) {
+  return buildLists().then(setItems).catch(e => {
     if (cached && cached.list) { setItems(cached.list); return; }
     throw e;
   });
 }
 
-/* ---------- recommender ---------- */
-function stats() {
-  var s = { d: {}, s1: {}, s2: {} };
-  function add(map, k, v) {
-    if (!k) return;
-    var o = map[k] || (map[k] = { sum: 0, n: 0 });
-    o.sum += v; o.n++;
+/* ================= recommender ================= */
+/* One number per topic: your rating (centred on 3), nudged by how far you actually read.
+   Topics you opened and abandoned quickly count as a mild "no". */
+function signal(key) {
+  const r = state.ratings[key], s = state.seen[key];
+  if (r) {
+    if (r.skip) return -0.6;
+    let v = r.r - 3;
+    if (r.depth != null) { if (r.depth > 0.85) v += 0.3; else if (r.depth < 0.3) v -= 0.3; }
+    return v;
   }
-  Object.keys(state.ratings).forEach(function (t) {
-    var r = state.ratings[t];
-    var v = r.skip ? -0.6 : (r.r - 3);
-    var parts = (r.p || "").split(" › ");
-    add(s.d, r.d, v);
-    add(s.s1, parts.slice(0, 2).join(" › "), v);
-    add(s.s2, parts.slice(0, 3).join(" › "), v);
+  if (s && s.depth < 0.25 && s.secs < 90) return -0.3;
+  return null;
+}
+function stats() {
+  const s = { d: {}, s1: {}, s2: {} };
+  const add = (map, k, v) => { if (!k) return; const o = map[k] || (map[k] = { sum: 0, n: 0 }); o.sum += v; o.n++; };
+  const keys = new Set(Object.keys(state.ratings).concat(Object.keys(state.seen)));
+  keys.forEach(t => {
+    const v = signal(t);
+    if (v == null) return;
+    const parts = pathOf(t).split(SEP);
+    add(s.d, areaOf(t), v);
+    add(s.s1, parts.slice(0, 2).join(SEP), v);
+    add(s.s2, parts.slice(0, 3).join(SEP), v);
   });
   return s;
 }
-function shrunk(o, prior) { return o ? o.sum / (o.n + prior) : 0; }
-
-function weightOf(it, st, personal) {
-  var w = BASE[it.d] || 0.2;
-  if (it.l3) w *= L3_BONUS;
-  if (!personal) return w;
-  var parts = it.p.split(" › ");
-  var a = shrunk(st.d[it.d], 3), b = shrunk(st.s1[parts.slice(0, 2).join(" › ")], 2), c = shrunk(st.s2[parts.slice(0, 3).join(" › ")], 2);
-  return w * Math.exp(0.5 * a + 0.6 * b + 0.5 * c);
+const shrunk = (o, prior) => o ? o.sum / (o.n + prior) : 0;
+function taste(it, st) {
+  const parts = it.p.split(SEP);
+  const a = shrunk(st.d[it.d], 3), b = shrunk(st.s1[parts.slice(0, 2).join(SEP)], 2), c = shrunk(st.s2[parts.slice(0, 3).join(SEP)], 2);
+  return Math.exp(0.5 * a + 0.6 * b + 0.5 * c);
 }
-
+function weightOf(it, st, personal) {
+  let w = BASE[it.d] || 0.2;
+  if (it.l3) w *= L3_BONUS;
+  return personal ? w * taste(it, st) : w;
+}
 function whyText(it, st, personal) {
-  var parts = it.p.split(" › ");
   if (!personal) return "Picked at random among important topics.";
-  var cands = [
+  const parts = it.p.split(SEP);
+  const cands = [
     { k: it.d, o: st.d[it.d] },
-    { k: parts.slice(0, 2).join(" › "), o: st.s1[parts.slice(0, 2).join(" › ")] },
-    { k: parts.slice(0, 3).join(" › "), o: st.s2[parts.slice(0, 3).join(" › ")] }
-  ].filter(function (c) { return c.o && c.o.n; });
-  cands.sort(function (x, y) { return (y.o.sum / y.o.n) - (x.o.sum / x.o.n); });
-  var bits = [];
-  if (cands.length && cands[0].o.sum > 0) bits.push("you liked " + cands[0].k.split(" › ").pop() + " (" + cands[0].o.n + " rated)");
+    { k: parts.slice(0, 2).join(SEP), o: st.s1[parts.slice(0, 2).join(SEP)] },
+    { k: parts.slice(0, 3).join(SEP), o: st.s2[parts.slice(0, 3).join(SEP)] }
+  ].filter(c => c.o && c.o.n);
+  cands.sort((x, y) => (y.o.sum / y.o.n) - (x.o.sum / x.o.n));
+  const bits = [];
+  if (cands.length && cands[0].o.sum > 0) bits.push("you liked " + cands[0].k.split(SEP).pop() + " (" + cands[0].o.n + " rated)");
   if (it.l3) bits.push("one of the 1,000 most essential topics");
   if (!bits.length) bits.push("exploring something new");
   return "Why this: " + bits.join("; ") + ".";
 }
-
-function pickCandidates(personal, domain, n, exclude) {
-  var st = stats();
-  var pending = {};
-  state.kindle.forEach(function (k) { pending[k.t] = 1; });
-  var pool = items.filter(function (it) {
-    if (state.ratings[it.t] || pending[it.t] || (exclude && exclude[it.t])) return false;
-    if (domain) return it.d === domain;
-    if (!personal) return CORE.indexOf(it.d) >= 0;
+function excludedSet(extra) {
+  const ex = Object.assign({}, extra || {});
+  state.kindle.forEach(k => { ex[k.t] = 1; });
+  state.queue.forEach(q => { ex[q.t] = 1; });
+  state.later.forEach(l => { ex[l.key] = 1; });
+  if (current) ex[current.key] = 1;
+  const now = Date.now();
+  Object.keys(state.seen).forEach(k => { const s = state.seen[k]; if (now - s.at < 30 * DAY && s.depth < 0.6) ex[k] = 1; });
+  return ex;
+}
+/* opts: {personal, domain, n, exclude, filter} */
+function pick(opts) {
+  const st = stats(), ex = excludedSet(opts.exclude);
+  const pool = items.filter(it => {
+    if (state.ratings[it.t] || ex[it.t]) return false;
+    if (opts.filter && !opts.filter(it)) return false;
+    if (opts.domain) return it.d === opts.domain;
+    if (!opts.personal && !opts.filter) return CORE.indexOf(it.d) >= 0;
     return true;
   });
-  var ws = pool.map(function (it) { return weightOf(it, st, personal); });
-  var picks = [];
-  for (var k = 0; k < n && pool.length; k++) {
-    var tot = ws.reduce(function (a, b) { return a + b; }, 0);
-    var x = Math.random() * tot, i = 0;
-    while (i < ws.length - 1 && (x -= ws[i]) > 0) i++;
-    picks.push(pool[i]);
-    pool.splice(i, 1); ws.splice(i, 1);
-  }
-  return { picks: picks, st: st };
+  const ws = pool.map(it => weightOf(it, st, opts.personal));
+  return { picks: shuffleWeighted(pool, ws, opts.n || 6), st };
 }
-
 /* Among a few weighted picks, prefer one whose article reads in 10-30 minutes. */
 function chooseByLength(picks) {
-  return api("en", { action: "query", prop: "info", redirects: "1", titles: picks.map(function (p) { return p.t; }).join("|") })
-    .then(function (j) {
-      var map = {};
-      (j.query.normalized || []).forEach(function (n) { map[n.from] = n.to; });
-      (j.query.redirects || []).forEach(function (r) { map[r.from] = r.to; });
-      var len = {};
-      (j.query.pages || []).forEach(function (pg) { len[pg.title] = pg.length || 0; });
-      function L(t) { var c = t; for (var g = 0; g < 3 && map[c]; g++) c = map[c]; return len[c] || 0; }
-      // wikitext bytes: roughly 25k-160k gives 10-30 minutes of prose once references are stripped
-      var good = picks.filter(function (p) { var l = L(p.t); return l >= 25000 && l <= 160000; });
-      return good[0] || picks.slice().sort(function (a, b) { return Math.abs(L(a.t) - 70000) - Math.abs(L(b.t) - 70000); })[0];
-    }).catch(function () { return picks[0]; });
+  return api("en", { action: "query", prop: "info", redirects: "1", titles: picks.map(p => p.t).join("|") }).then(j => {
+    const map = {}, len = {};
+    (j.query.normalized || []).forEach(n => { map[n.from] = n.to; });
+    (j.query.redirects || []).forEach(r => { map[r.from] = r.to; });
+    (j.query.pages || []).forEach(pg => { len[pg.title] = pg.length || 0; });
+    const L = t => { let c = t; for (let g = 0; g < 3 && map[c]; g++) c = map[c]; return len[c] || 0; };
+    // wikitext bytes: roughly 25k-160k gives 10-30 minutes of prose once references are stripped
+    const good = picks.filter(p => { const l = L(p.t); return l >= 25000 && l <= 160000; });
+    return good[0] || picks.slice().sort((a, b) => Math.abs(L(a.t) - 70000) - Math.abs(L(b.t) - 70000))[0];
+  }).catch(() => picks[0]);
 }
 
-/* ---------- article loading ---------- */
-var current = null;   // {key, it, lang, title, why}
-var backStack = [];
+/* ================= article fetching ================= */
+let current = null;   // {key, it, lang, title, why, html, qid, depth, secs, thread}
+let backStack = [];
 
 function langTitle(enTitle, lang) {
   if (lang === "en") return Promise.resolve(enTitle);
-  return api("en", { action: "query", prop: "langlinks", lllang: lang, redirects: "1", titles: enTitle })
-    .then(function (j) {
-      var pg = (j.query.pages || [])[0];
-      var ll = pg && pg.langlinks && pg.langlinks[0];
-      return ll ? ll.title : null;
-    });
+  return api("en", { action: "query", prop: "langlinks", lllang: lang, redirects: "1", titles: enTitle }).then(j => {
+    const pg = (j.query.pages || [])[0];
+    const ll = pg && pg.langlinks && pg.langlinks[0];
+    return ll ? ll.title : null;
+  });
 }
-
-var END_SECTIONS = /^(see also|references|notes|footnotes|citations|sources|further reading|external links|bibliography|works cited|notes and references|explanatory notes|voci correlate|note|bibliografia|altri progetti|collegamenti esterni|fonti|opere|filmografia|discografia|riferimenti)$/i;
-var BAD_NS = /^(File|Image|Category|Help|Wikipedia|Template|Special|Portal|Talk|User|Draft|Module|MediaWiki|Categoria|Aiuto|Portale|Speciale|Discussioni|Utente|Immagine|Progetto)[: ]/i;
+const END_SECTIONS = /^(see also|references|notes|footnotes|citations|sources|further reading|external links|bibliography|works cited|notes and references|explanatory notes|voci correlate|note|bibliografia|altri progetti|collegamenti esterni|fonti|opere|filmografia|discografia|riferimenti)$/i;
+const BAD_NS = /^(File|Image|Category|Help|Wikipedia|Template|Special|Portal|Talk|User|Draft|Module|MediaWiki|Categoria|Aiuto|Portale|Speciale|Discussioni|Utente|Immagine|Progetto)[: ]/i;
 
 function cleanHtml(html, lang) {
-  var doc = new DOMParser().parseFromString(html, "text/html");
-  var root = doc.querySelector(".mw-parser-output") || doc.body;
-  var kill = ".infobox, .sinottico, .navbox, .navbox-styles, .vertical-navbox, .sidebar, .metadata, .ambox, .avviso, .hatnote, .dablink, .mw-editsection, sup.reference, sup.noprint, .reflist, .references, .mw-references-wrap, figure, .thumb, .gallery, img, .noprint, style, link, script, .mw-empty-elt, .shortdescription, .toc, #toc, .portal, .sistersitebox, .side-box, .mbox-small, .plainlinks.stub, .navigation-not-searchable, .noexcerpt, audio, video, .mw-kartographer-maplink, .mwe-math-fallback-image-inline, .reference";
-  root.querySelectorAll(kill).forEach(function (n) { n.remove(); });
-  // cut from the first "See also / References" heading onwards
-  var kids = Array.prototype.slice.call(root.children), cut = false;
-  kids.forEach(function (el) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const root = doc.querySelector(".mw-parser-output") || doc.body;
+  root.querySelectorAll(".infobox, .sinottico, .navbox, .navbox-styles, .vertical-navbox, .sidebar, .metadata, .ambox, .avviso, .hatnote, .dablink, .mw-editsection, sup.reference, sup.noprint, .reflist, .references, .mw-references-wrap, figure, .thumb, .gallery, img, .noprint, style, link, script, .mw-empty-elt, .shortdescription, .toc, #toc, .portal, .sistersitebox, .side-box, .mbox-small, .plainlinks.stub, .navigation-not-searchable, .noexcerpt, audio, video, .mw-kartographer-maplink, .mwe-math-fallback-image-inline, .reference").forEach(n => n.remove());
+  let cut = false;
+  Array.prototype.slice.call(root.children).forEach(e => {
     if (!cut) {
-      var h = el.matches("h2") ? el : (el.matches(".mw-heading2") ? el.querySelector("h2") : null);
+      const h = e.matches("h2") ? e : (e.matches(".mw-heading2") ? e.querySelector("h2") : null);
       if (h && END_SECTIONS.test(h.textContent.trim())) cut = true;
     }
-    if (cut) el.remove();
+    if (cut) e.remove();
   });
-  root.querySelectorAll("[style]").forEach(function (n) { n.removeAttribute("style"); });
-  root.querySelectorAll("table").forEach(function (t) {
-    var w = doc.createElement("div"); w.className = "tablewrap";
+  root.querySelectorAll("[style]").forEach(n => n.removeAttribute("style"));
+  root.querySelectorAll("table").forEach(t => {
+    const w = doc.createElement("div"); w.className = "tablewrap";
     t.parentNode.insertBefore(w, t); w.appendChild(t);
   });
-  root.querySelectorAll("a").forEach(function (a) {
-    var href = a.getAttribute("href") || "";
-    if (a.classList.contains("new") || href.charAt(0) === "#" || !href) {
-      a.replaceWith(doc.createTextNode(a.textContent)); return;
-    }
-    var m = href.match(/^\/wiki\/([^#?]+)/);
+  root.querySelectorAll("a").forEach(a => {
+    const href = a.getAttribute("href") || "";
+    if (a.classList.contains("new") || href.charAt(0) === "#" || !href) { a.replaceWith(doc.createTextNode(a.textContent)); return; }
+    const m = href.match(/^\/wiki\/([^#?]+)/);
     if (m) {
-      var t = decodeURIComponent(m[1]).replace(/_/g, " ");
+      let t;
+      try { t = decodeURIComponent(m[1]).replace(/_/g, " "); } catch (e) { t = m[1].replace(/_/g, " "); }
       if (BAD_NS.test(t)) { a.replaceWith(doc.createTextNode(a.textContent)); return; }
       a.setAttribute("href", "https://" + lang + ".wikipedia.org/wiki/" + m[1]);
       a.setAttribute("data-inapp", t);
@@ -451,128 +602,807 @@ function cleanHtml(html, lang) {
     if (href.indexOf("//") === 0) a.setAttribute("href", "https:" + href);
     a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener");
   });
-  // drop empty paragraphs left behind
-  root.querySelectorAll("p").forEach(function (p) { if (!p.textContent.trim()) p.remove(); });
+  root.querySelectorAll("p").forEach(p => { if (!p.textContent.trim()) p.remove(); });
   return root.innerHTML;
 }
-
 function fetchArticle(title, lang) {
-  return api(lang, { action: "parse", page: title, prop: "text|displaytitle", redirects: "1", disableeditsection: "1", disabletoc: "1" })
-    .then(function (j) { return { title: j.parse.title, html: cleanHtml(j.parse.text, lang) }; });
-}
-
-function show(opts) {
-  // opts: {enTitle?, title?, lang, it?, why?, pushBack?}
-  var lang = opts.lang;
-  status("Loading “" + (opts.enTitle || opts.title) + "”…");
-  var titleP = opts.title ? Promise.resolve(opts.title) : langTitle(opts.enTitle, lang);
-  return titleP.then(function (t) {
-    var note = "";
-    if (!t) { note = "No Italian article for this topic, showing the English one. "; lang = "en"; t = opts.enTitle; }
-    return fetchArticle(t, lang).then(function (a) { return { a: a, lang: lang, note: note }; });
-  }).then(function (res) {
-    if (opts.pushBack && current) backStack.push(current);
-    var key = opts.it ? opts.it.t : (byTitle[normTitle(res.a.title)] ? normTitle(res.a.title) : (opts.key || null));
-    var it = opts.it || (key ? byTitle[key] : null);
-    current = { key: it ? it.t : normTitle(res.a.title), it: it, lang: res.lang, title: res.a.title, why: opts.why || "" };
-    render(res.a, res.note);
-    status("");
-    window.scrollTo(0, 0);
-  }).catch(function (e) {
-    status("Could not load the article: " + e.message + ". Check the connection and try again.");
+  return api(lang, { action: "parse", page: title, prop: "text|properties", redirects: "1", disableeditsection: "1", disabletoc: "1" }).then(j => {
+    let qid = null;
+    const pr = j.parse.properties;
+    if (Array.isArray(pr)) pr.forEach(p => { if (p.name === "wikibase_item") qid = p["*"] || p.value; });
+    else if (pr) qid = pr.wikibase_item || null;
+    return { title: j.parse.title, html: cleanHtml(j.parse.text, lang), qid, lang };
   });
 }
 
-function render(a, note) {
+/* ================= showing an article ================= */
+async function show(opts) {
+  // opts: {enTitle?, title?, lang, it?, why?, key?, pushBack?, thread?}
+  let lang = opts.lang;
+  status("Loading “" + (opts.enTitle || opts.title) + "”…");
+  try {
+    let t = opts.title || await langTitle(opts.enTitle, lang);
+    let note = "";
+    if (!t) { note = "No Italian article for this topic, showing the English one. "; lang = "en"; t = opts.enTitle; }
+    const a = await fetchArticle(t, lang);
+    displayArticle(a, Object.assign({}, opts, { note }));
+    return true;
+  } catch (e) {
+    status((navigator.onLine === false ? "You're offline. " : "") + "Could not load the article: " + e.message + ".");
+    return false;
+  }
+}
+
+function displayArticle(a, o) {
+  if (o.pushBack && current) backStack.push(snapshot(current));
+  const it = o.it || (a.lang === "en" ? byTitle[normTitle(a.title)] : null) || null;
+  const key = it ? it.t : (o.key || normTitle(a.title));
+  current = { key, it, lang: a.lang, title: a.title, why: o.why || "", html: a.html, qid: a.qid, depth: 0, secs: 0, thread: o.thread || [] };
   $("reader").hidden = false;
   $("backrow").hidden = !backStack.length;
   $("a-title").textContent = a.title;
   $("article").innerHTML = a.html;
-  current.html = a.html;
-  var words = ($("article").textContent.match(/\S+/g) || []).length;
-  var mins = Math.max(1, Math.round(words / WPM));
-  var it = current.it;
-  var where = it ? (it.d + " · " + it.p.split(" › ").slice(1).join(" › ")) : "a detour, not on the list";
+  const mins = minutesOf($("article").textContent);
+  const where = it ? (it.d + " · " + it.p.split(SEP).slice(1).join(SEP) + (it.l3 ? " · essential" : "")) : "a detour, not on the list";
   $("a-meta").textContent = where + " · about " + mins + " min" + (mins > TARGET_MAX ? " (long, read part of it if you like)" : "");
-  $("a-why").textContent = note + (current.why || "");
-  $("a-src").href = "https://" + current.lang + ".wikipedia.org/wiki/" + encodeURIComponent(a.title.replace(/ /g, "_"));
-  $("btn-otherlang").textContent = current.lang === "en" ? "Leggi in italiano" : "Read in English";
-  paintRating();
+  $("a-why").textContent = (o.note || "") + current.why;
+  $("a-thread").textContent = current.thread.length ? "Thread: " + current.thread.concat([a.title]).join(" → ") : "";
+  $("a-src").href = "https://" + a.lang + ".wikipedia.org/wiki/" + encodeURIComponent(a.title.replace(/ /g, "_"));
+  $("btn-otherlang").textContent = a.lang === "en" ? "Leggi in italiano" : "Read in English";
+  $("btn-later").textContent = state.later.some(l => l.key === key) ? "In Later" : "Later";
   $("rate-msg").textContent = "";
+  $("note-msg").textContent = "";
+  $("note").value = (state.notes[key] && state.notes[key].text) || "";
+  paintRating();
+  paintPrev();
+  paintWhen();
+  paintDeeper();
+  $("thread-box").innerHTML = "";
+  status("");
+  if (o.restoreY) requestAnimationFrame(() => window.scrollTo(0, o.restoreY * document.documentElement.scrollHeight));
+  else window.scrollTo(0, 0);
+  state.cur = { key, title: a.title, lang: a.lang, why: current.why, thread: current.thread, it: it ? it.t : null, y: o.restoreY || 0 };
+  saveState();
+  idb.put("cur", a);
+  if (state.dates[key] === undefined && a.qid) loadDates(key, a.qid);
+  threadFor(current);
+  setTimeout(refillQueue, 4000);
 }
+function snapshot(c) { return { a: { title: c.title, html: c.html, qid: c.qid, lang: c.lang }, it: c.it, why: c.why, key: c.key, thread: c.thread }; }
+function minutesOf(text) { return Math.max(1, Math.round(((text.match(/\S+/g) || []).length) / WPM)); }
 
 function paintRating() {
-  var r = current && state.ratings[current.key];
-  document.querySelectorAll("#rate button[data-r]").forEach(function (b) {
-    b.classList.toggle("on", !!(r && !r.skip && r.r === +b.getAttribute("data-r")));
+  const r = current && state.ratings[current.key];
+  document.querySelectorAll("#rate button[data-r]").forEach(b => b.classList.toggle("on", !!(r && !r.skip && r.r === +b.getAttribute("data-r"))));
+}
+function paintPrev() {
+  const box = $("a-prev"), key = current.key;
+  const r = state.ratings[key], n = state.notes[key], qs = state.quotes.filter(q => q.key === key);
+  box.innerHTML = "";
+  if (!r && !n && !qs.length) { box.hidden = true; return; }
+  box.hidden = false;
+  if (r) box.appendChild(el("div", null, "You read this " + ago(r.at) + (r.skip ? " and skipped it." : ", rated " + r.r + "/5.")));
+  if (n && n.text) box.appendChild(el("div", null, "Your note: " + n.text));
+  qs.forEach(q => box.appendChild(el("blockquote", null, q.text)));
+}
+function paintWhen() {
+  const box = $("a-when");
+  box.textContent = "";
+  const d = state.dates[current.key];
+  if (!d) return;
+  let s = "When: " + fmtRange(d);
+  const mates = contemporaries(current.key, d);
+  if (mates.length) s += " · same era, already read: " + mates.map(m => m.title + " (" + fmtRange(m.d) + ")").join(", ");
+  box.textContent = s;
+}
+function paintDeeper() {
+  const t = current.it ? current.it.t : current.title;
+  const d = current.it ? current.it.d : "";
+  const isPerson = current.it && /^People/.test(current.it.p);
+  const enc = encodeURIComponent;
+  const g = q => "https://www.google.com/search?q=" + enc(q);
+  const links = [];
+  links.push(["Britannica", "https://www.britannica.com/search?query=" + enc(t)]);
+  if (current.lang === "it" || state.lang === "it") links.push(["Treccani", g("site:treccani.it " + current.title)]);
+  links.push(["In Our Time (BBC)", g("site:bbc.co.uk/programmes \"In Our Time\" " + t)]);
+  if (d === "philosophy") {
+    links.push(["Stanford Encyclopedia", "https://plato.stanford.edu/search/searcher.py?query=" + enc(t)]);
+    links.push(["Internet Encyclopedia of Philosophy", g("site:iep.utm.edu " + t)]);
+  }
+  if (d === "art") links.push(["Smarthistory", g("site:smarthistory.org " + t)]);
+  if (d === "music" && isPerson) links.push(["IMSLP scores", "https://imslp.org/index.php?search=" + enc(t)]);
+  if (isPerson && (d === "philosophy" || d === "literature" || d === "history" || d === "science")) {
+    links.push(["their own works: Wikisource", "https://" + (current.lang === "it" ? "it" : "en") + ".wikisource.org/w/index.php?search=" + enc(current.title)]);
+    links.push(["Project Gutenberg", "https://www.gutenberg.org/ebooks/search/?query=" + enc(t)]);
+    if (current.lang === "it" || state.lang === "it") links.push(["Liber Liber", g("site:liberliber.it " + current.title)]);
+  }
+  const box = $("deeper");
+  box.innerHTML = "";
+  box.appendChild(document.createTextNode("Go deeper: "));
+  links.forEach((l, i) => {
+    if (i) box.appendChild(document.createTextNode(" · "));
+    box.appendChild(el("a", { href: l[1], target: "_blank", rel: "noopener" }, l[0]));
   });
 }
 
-/* ---------- actions ---------- */
-function next(personal) {
+/* ================= reading signals: depth + time ================= */
+let lastActive = Date.now(), view = "read", readY = 0, tickN = 0;
+function updateDepth() {
+  if (!current || view !== "read") return;
+  const r = $("article").getBoundingClientRect();
+  if (r.height < 50) return;
+  const d = Math.max(0, Math.min(1, (window.innerHeight - r.top) / r.height));
+  if (d > current.depth) current.depth = d;
+}
+window.addEventListener("scroll", () => { lastActive = Date.now(); updateDepth(); }, { passive: true });
+["touchstart", "keydown", "mousemove"].forEach(ev => window.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true }));
+setInterval(() => {
+  if (document.visibilityState !== "visible" || view !== "read" || !current) return;
+  if (Date.now() - lastActive > 90000) return;
+  current.secs += 5;
+  state.days[today()] = (state.days[today()] || 0) + 5;
+  if (state.cur) state.cur.y = window.scrollY / Math.max(1, document.documentElement.scrollHeight);
+  if (++tickN % 6 === 0) { saveState(); paintStatline(); }
+}, 5000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { recordSeen(); saveState(); } });
+
+function recordSeen() {
+  if (!current) return;
+  const k = current.key, prev = state.seen[k] || { depth: 0, secs: 0 };
+  state.seen[k] = { depth: Math.max(prev.depth, current.depth), secs: Math.max(prev.secs, current.secs), at: Date.now() };
+  if (state.ratings[k]) state.ratings[k].depth = Math.max(state.ratings[k].depth || 0, current.depth);
+}
+function finishCurrent() { recordSeen(); saveState(); }
+
+/* ================= actions ================= */
+async function next(personal) {
   if (!items.length) { status("Topic lists are not loaded yet."); return; }
-  var domain = $("domain").value;
-  var c = pickCandidates(personal, domain, 6);
+  finishCurrent();
+  const domain = $("domain").value;
+  if (personal && !domain) {
+    const q = await takeQueued();
+    if (q) { backStack = []; displayArticle(q.a, { it: q.it, why: q.why }); return; }
+  }
+  const c = pick({ personal, domain, n: 6 });
   if (!c.picks.length) { status("You have read everything in this area. Impressive."); return; }
   status("Choosing…");
-  chooseByLength(c.picks).then(function (it) {
-    backStack = [];
-    show({ enTitle: it.t, lang: state.lang, it: it, why: whyText(it, c.st, personal) });
+  const it = await chooseByLength(c.picks);
+  backStack = [];
+  const ok = await show({ enTitle: it.t, lang: state.lang, it, why: whyText(it, c.st, personal) });
+  if (!ok) {
+    const q = await takeQueued();
+    if (q) { displayArticle(q.a, { it: q.it, why: q.why }); toast("Offline: showing a saved article."); }
+  }
+}
+
+function gapSections() {
+  const sec = {};
+  items.forEach(it => {
+    const k = it.d + "|" + sectionOf(it.p);
+    const o = sec[k] || (sec[k] = { key: k, d: it.d, s: sectionOf(it.p), tot: 0, read: 0, l3: 0, l3read: 0 });
+    o.tot++; if (it.l3) o.l3++;
+    if (isRead(it.t)) { o.read++; if (it.l3) o.l3read++; }
+  });
+  return Object.keys(sec).map(k => sec[k]);
+}
+async function fillGap(sectionKey) {
+  if (!items.length) { status("Topic lists are not loaded yet."); return; }
+  finishCurrent();
+  let target;
+  const secs = gapSections();
+  if (sectionKey) target = secs.find(s => s.key === sectionKey);
+  else {
+    const domain = $("domain").value;
+    const cand = secs.filter(s => s.tot >= 5 && s.read < s.tot && (domain ? s.d === domain : true));
+    const ws = cand.map(s => Math.pow(1 - s.read / s.tot, 3) * Math.sqrt(s.tot) * (BASE[s.d] || 0.2) * (1 + s.l3 / s.tot));
+    target = shuffleWeighted(cand, ws, 1)[0];
+  }
+  if (!target) { status("No gaps left here."); return; }
+  const c = pick({ personal: false, n: 6, filter: it => it.d === target.d && sectionOf(it.p) === target.s });
+  if (!c.picks.length) { status("You have read everything in that section."); return; }
+  status("Choosing…");
+  const it = await chooseByLength(c.picks);
+  backStack = [];
+  const label = target.s.split(SEP).slice(-1)[0];
+  show({ enTitle: it.t, lang: state.lang, it, why: "Filling a gap: you had read " + target.read + " of " + target.tot + " topics in “" + label + "” (" + target.d + ")." });
+}
+
+function rateKey(key, it, r, skip, title, lang) {
+  const prev = state.ratings[key];
+  state.ratings[key] = { r, skip: !!skip, d: it ? it.d : (prev && prev.d) || "detour", p: it ? it.p : (prev && prev.p) || "", at: Date.now(), title: title || (prev && prev.title) || key, lang: lang || (prev && prev.lang) || "en", depth: prev && prev.depth };
+  state.log.unshift({ t: key, at: Date.now() });
+  state.log = state.log.slice(0, 500);
+  state.kindle = state.kindle.filter(k => k.t !== key);
+  state.later = state.later.filter(l => l.key !== key);
+  if (!skip && r >= 3) createCard(key, title, lang, current && current.key === key ? current.html : null);
+  saveState();
+  paintNav();
+}
+function rate(r, skip) {
+  if (!current) return;
+  recordSeen();
+  rateKey(current.key, current.it, r, skip, current.title, current.lang);
+  if (state.ratings[current.key]) state.ratings[current.key].depth = current.depth;
+  saveState();
+  paintRating();
+  $("rate-msg").textContent = skip ? "Skipped. Similar topics will come up less." :
+    "Saved " + r + "/5." + (r >= 3 ? " It will come back for recall in 2 days." : "");
+  if (skip) next(true);
+  else if (!$("note").value) $("note").focus({ preventScroll: true });
+}
+function saveNote() {
+  if (!current) return;
+  const v = $("note").value.trim();
+  if (v) state.notes[current.key] = { text: v, at: Date.now(), title: current.title, lang: current.lang };
+  else delete state.notes[current.key];
+  saveState();
+  $("note-msg").textContent = v ? "Saved to your notebook." : "Note removed.";
+  paintPrev();
+}
+function toggleLater() {
+  if (!current) return;
+  const i = state.later.findIndex(l => l.key === current.key);
+  if (i >= 0) state.later.splice(i, 1);
+  else state.later.unshift({ key: current.key, title: current.title, lang: current.lang, at: Date.now() });
+  saveState();
+  $("btn-later").textContent = i >= 0 ? "Later" : "In Later";
+  renderLater();
+}
+function addLater(it, title, lang) {
+  if (state.later.some(l => l.key === it.t)) return;
+  state.later.unshift({ key: it.t, title: title || it.t, lang: lang || "en", at: Date.now() });
+  saveState(); renderLater(); toast("Added to Later.");
+}
+function openEntry(key, title, lang, why) {
+  finishCurrent();
+  backStack = [];
+  if (location.hash !== "#read") location.hash = "#read";
+  const it = byTitle[key];
+  if (it && lang === state.lang && lang === "en") return show({ enTitle: key, lang, it, why });
+  return show({ title, lang: lang || "en", it, key, why });
+}
+
+/* ================= follow the thread ================= */
+async function threadFor(cur) {
+  const box = $("thread-box");
+  box.innerHTML = "";
+  const art = $("article");
+  const score = new Map();
+  const leadPs = Array.prototype.filter.call(art.children, e => e.tagName === "P").slice(0, 3);
+  const leadSet = new Set();
+  leadPs.forEach(p => p.querySelectorAll("a[data-inapp]").forEach(a => leadSet.add(a)));
+  art.querySelectorAll("a[data-inapp]").forEach(a => {
+    const t = normTitle(a.getAttribute("data-inapp"));
+    if (t === normTitle(cur.title)) return;
+    score.set(t, (score.get(t) || 0) + (leadSet.has(a) ? 3 : 1));
+  });
+  const top = Array.from(score.entries()).sort((a, b) => b[1] - a[1]).slice(0, 50);
+  if (!top.length) return;
+  let toEn = {};
+  try {
+    const params = { action: "query", redirects: "1", titles: top.map(x => x[0]).join("|") };
+    if (cur.lang !== "en") Object.assign(params, { prop: "langlinks", lllang: "en", lllimit: "max" });
+    const j = await api(cur.lang, params);
+    const hop = {};
+    (j.query.normalized || []).forEach(n => { hop[n.from] = n.to; });
+    (j.query.redirects || []).forEach(r => { hop[r.from] = r.to; });
+    const final = {};
+    (j.query.pages || []).forEach(pg => {
+      if (cur.lang === "en") final[pg.title] = pg.title;
+      else if (pg.langlinks && pg.langlinks[0]) final[pg.title] = pg.langlinks[0].title;
+    });
+    top.forEach(x => {
+      let c = x[0];
+      for (let g = 0; g < 3 && hop[c]; g++) c = hop[c];
+      if (final[c]) toEn[x[0]] = normTitle(final[c]);
+    });
+  } catch (e) { return; }
+  if (current !== cur) return;
+  const st = stats(), ex = excludedSet();
+  const best = new Map();
+  top.forEach(x => {
+    const it = byTitle[toEn[x[0]]];
+    if (!it || state.ratings[it.t] || ex[it.t] || it.t === cur.key) return;
+    const s = x[1] * (it.l3 ? 1.5 : 1) * taste(it, st) * (BASE[it.d] || 0.3);
+    const prev = best.get(it.t);
+    if (!prev || prev.s < s) best.set(it.t, { it, s, n: x[1], local: x[0] });
+  });
+  const picks = Array.from(best.values()).sort((a, b) => b.s - a.s).slice(0, 3);
+  if (!picks.length) return;
+  box.appendChild(el("div", null, el("b", null, "Follow the thread")));
+  picks.forEach(p => {
+    const label = cur.lang === "en" || p.local === p.it.t ? p.it.t : p.local + " (" + p.it.t + ")";
+    const row = el("div", null,
+      linkTo(label, () => {
+        finishCurrent();
+        show({ title: cur.lang === "en" ? p.it.t : p.local, lang: cur.lang, it: p.it, pushBack: true,
+          thread: (cur.thread || []).concat([cur.title]).slice(-6),
+          why: "Follows from “" + cur.title + "”, which mentions it " + (p.n > 1 ? "often" : "once") + "." });
+      }),
+      el("small", null, " " + p.it.d + (p.it.l3 ? " · essential" : "") + " "),
+      button("later", () => addLater(p.it, cur.lang === "en" ? p.it.t : p.local, cur.lang)));
+    box.appendChild(row);
   });
 }
 
-function rateKey(key, it, r, skip) {
-  state.ratings[key] = { r: r, skip: !!skip, d: it ? it.d : "detour", p: it ? it.p : "", at: Date.now() };
-  state.log.unshift({ t: key, at: Date.now() });
-  state.log = state.log.slice(0, 500);
-  state.kindle = state.kindle.filter(function (k) { return k.t !== key; });
+/* ================= dates (Wikidata) + timeline ================= */
+function parseYear(v) { const m = /^([+-]?)0*(\d+)-/.exec(v || ""); if (!m) return null; const y = +m[2]; return m[1] === "-" ? -y : y; }
+function fmtYear(y) { return y < 0 ? (-y) + " BC" : String(y); }
+function fmtRange(d) {
+  if (d[0] === d[1]) return fmtYear(d[0]);
+  if (d[0] < 0 && d[1] < 0) return (-d[0]) + "–" + (-d[1]) + " BC";
+  return fmtYear(d[0]) + "–" + fmtYear(d[1]);
+}
+async function datesForQids(qids) {
+  const out = {};
+  if (!qids.length) return out;
+  const q = "SELECT ?item ?b ?d ?s ?e ?pt ?pub ?i ?dis WHERE { VALUES ?item { " + qids.map(x => "wd:" + x).join(" ") + " } " +
+    "OPTIONAL{?item wdt:P569 ?b} OPTIONAL{?item wdt:P570 ?d} OPTIONAL{?item wdt:P580 ?s} OPTIONAL{?item wdt:P582 ?e} " +
+    "OPTIONAL{?item wdt:P585 ?pt} OPTIONAL{?item wdt:P577 ?pub} OPTIONAL{?item wdt:P571 ?i} OPTIONAL{?item wdt:P576 ?dis} }";
+  const r = await fetch("https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(q));
+  if (!r.ok) throw new Error("Wikidata answered " + r.status);
+  const j = await r.json();
+  const acc = {};
+  j.results.bindings.forEach(b => {
+    const id = b.item.value.split("/").pop();
+    const o = acc[id] || (acc[id] = {});
+    ["b", "d", "s", "e", "pt", "pub", "i", "dis"].forEach(k => {
+      if (!b[k]) return;
+      const y = parseYear(b[k].value);
+      if (y == null) return;
+      (o[k] || (o[k] = [])).push(y);
+    });
+  });
+  const now = new Date().getFullYear();
+  Object.keys(acc).forEach(id => {
+    const o = acc[id], mn = a => Math.min.apply(null, a), mx = a => Math.max.apply(null, a);
+    let d = null;
+    if (o.b) d = [mn(o.b), o.d ? mx(o.d) : mn(o.b)];
+    else if (o.s) d = [mn(o.s), o.e ? mx(o.e) : mn(o.s)];
+    else if (o.pt) d = [mn(o.pt), mn(o.pt)];
+    else if (o.pub) d = [mn(o.pub), mn(o.pub)];
+    else if (o.i) d = [mn(o.i), o.dis ? mx(o.dis) : mn(o.i)];
+    if (d && d[0] <= now + 1) out[id] = d;
+  });
+  return out;
+}
+async function loadDates(key, qid) {
+  try {
+    const r = await datesForQids([qid]);
+    state.dates[key] = r[qid] || 0;
+    saveState();
+    if (current && current.key === key) paintWhen();
+  } catch (e) { /* try again next time */ }
+}
+function contemporaries(key, d) {
+  const out = [];
+  Object.keys(state.dates).forEach(k => {
+    const e = state.dates[k];
+    if (!e || k === key || !isRead(k)) return;
+    if (e[0] - 5 <= d[1] && d[0] <= e[1] + 5) out.push({ title: (state.ratings[k] && state.ratings[k].title) || k, d: e, gap: Math.abs(e[0] - d[0]) });
+  });
+  return out.sort((a, b) => a.gap - b.gap).slice(0, 4);
+}
+async function backfillDates() {
+  const msg = $("dates-msg");
+  const todo = Object.keys(state.ratings).filter(k => isRead(k) && state.dates[k] === undefined);
+  if (!todo.length) { msg.textContent = "Nothing missing."; return; }
+  msg.textContent = "Looking up " + todo.length + "…";
+  const groups = {};
+  todo.forEach(k => { const r = state.ratings[k]; const lang = byTitle[k] ? "en" : (r.lang || "en"); const t = byTitle[k] ? k : (r.title || k); (groups[lang] || (groups[lang] = [])).push([k, t]); });
+  let found = 0;
+  try {
+    for (const lang of Object.keys(groups)) {
+      const list = groups[lang];
+      for (let i = 0; i < list.length; i += 40) {
+        const chunk = list.slice(i, i + 40);
+        const j = await api(lang, { action: "query", prop: "pageprops", ppprop: "wikibase_item", redirects: "1", titles: chunk.map(c => c[1]).join("|") });
+        const hop = {}, qidOf = {};
+        (j.query.normalized || []).forEach(n => { hop[n.from] = n.to; });
+        (j.query.redirects || []).forEach(r => { hop[r.from] = r.to; });
+        (j.query.pages || []).forEach(pg => { if (pg.pageprops && pg.pageprops.wikibase_item) qidOf[pg.title] = pg.pageprops.wikibase_item; });
+        const keyQ = {};
+        chunk.forEach(c => { let t = c[1]; for (let g = 0; g < 3 && hop[t]; g++) t = hop[t]; if (qidOf[t]) keyQ[c[0]] = qidOf[t]; });
+        const res = await datesForQids(Array.from(new Set(Object.values(keyQ))));
+        chunk.forEach(c => { const q = keyQ[c[0]]; state.dates[c[0]] = (q && res[q]) || 0; if (q && res[q]) found++; });
+        saveState();
+      }
+    }
+    msg.textContent = "Found dates for " + found + " of " + todo.length + ".";
+  } catch (e) { msg.textContent = "Could not reach Wikipedia or Wikidata: " + e.message; }
+  renderTimeline();
+}
+function centuryLabel(y) {
+  if (y < 0) { const c = Math.floor((-y - 1) / 100) + 1; return ordinal(c) + " century BC"; }
+  const c = Math.floor((y - 1) / 100) + 1;
+  return ordinal(c) + " century";
+}
+function ordinal(n) { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function renderTimeline() {
+  const box = $("timeline");
+  box.innerHTML = "";
+  const rows = Object.keys(state.ratings).filter(k => isRead(k) && state.dates[k]).map(k => ({ k, d: state.dates[k], r: state.ratings[k] }));
+  const undated = Object.keys(state.ratings).filter(k => isRead(k) && !state.dates[k]).length;
+  if (!rows.length) { box.appendChild(el("p", null, el("small", null, "Topics you read appear here in date order, so you can see who lived alongside whom. Read a few articles first."))); return; }
+  rows.sort((a, b) => a.d[0] - b.d[0] || a.d[1] - b.d[1]);
+  let lastC = null, lastY = null;
+  rows.forEach(row => {
+    const c = row.d[0] < -3000 ? "Before 3000 BC" : centuryLabel(row.d[0] === 0 ? 1 : row.d[0]);
+    if (c !== lastC) {
+      if (lastY != null && row.d[0] - lastY > 300) box.appendChild(el("div", { class: "meta" }, "⋮ " + (row.d[0] - lastY) + " years with nothing read"));
+      box.appendChild(el("div", { class: "c" }, c));
+      lastC = c;
+    }
+    lastY = Math.max(lastY == null ? row.d[1] : lastY, row.d[1]);
+    box.appendChild(el("div", null,
+      el("span", { class: "y" }, fmtRange(row.d)),
+      linkTo(row.r.title || row.k, () => openEntry(row.k, row.r.title || row.k, row.r.lang || "en", "From your timeline.")),
+      el("small", null, " " + row.r.r + "/5")));
+  });
+  if (undated) box.appendChild(el("p", null, el("small", null, undated + " read topics have no dates (ideas, places) or haven't been looked up yet.")));
+}
+
+/* ================= recall (spaced repetition) ================= */
+function leadFrom(html) {
+  const doc = new DOMParser().parseFromString("<div>" + html + "</div>", "text/html");
+  const ps = Array.prototype.filter.call(doc.body.firstChild.children, e => e.tagName === "P");
+  let text = "";
+  for (let i = 0; i < ps.length && i < 3 && text.length < 550; i++) text += (text ? "\n\n" : "") + ps[i].textContent.trim();
+  const terms = ps[0] ? Array.prototype.map.call(ps[0].querySelectorAll("a"), a => a.textContent.trim()).filter(t => t.length > 2 && t.length < 40) : [];
+  return { text: text.slice(0, 1400), terms: terms.slice(0, 12) };
+}
+function createCard(key, title, lang, html) {
+  if (state.cards[key]) return;
+  const c = { title: title || key, lang: lang || "en", due: Date.now() + 2 * DAY, iv: 2, n: 0, lapses: 0, at: Date.now() };
+  if (html) { const l = leadFrom(html); c.lead = l.text; c.terms = l.terms; }
+  state.cards[key] = c;
+}
+function dueKeys() {
+  const now = Date.now();
+  return Object.keys(state.cards).filter(k => state.cards[k].due <= now).sort((a, b) => state.cards[a].due - state.cards[b].due);
+}
+async function ensureLead(key) {
+  const c = state.cards[key];
+  if (c.lead) return c;
+  try {
+    const j = await api(c.lang, { action: "query", prop: "extracts", exintro: "1", explaintext: "1", redirects: "1", titles: c.title });
+    const pg = (j.query.pages || [])[0];
+    if (pg && pg.extract) { c.lead = pg.extract.split("\n").filter(Boolean).slice(0, 3).join("\n\n").slice(0, 1400); c.terms = []; saveState(); }
+  } catch (e) { /* offline: answer shows notes only */ }
+  return c;
+}
+function clozeOf(c) {
+  if (!c.lead) return null;
+  const sents = (c.lead.split("\n")[0].match(/[^.!?]+[.!?]+(\s|$)/g) || [c.lead]).slice(0, 2).join("");
+  let out = sents, blanks = 0;
+  const title = c.title.toLowerCase();
+  (c.terms || []).forEach(t => {
+    if (blanks >= 4 || title.indexOf(t.toLowerCase()) >= 0) return;
+    const re = new RegExp("\\b" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b");
+    if (re.test(out)) { out = out.replace(re, "_____"); blanks++; }
+  });
+  out = out.replace(/\b(\d{3,4})(s)?\b/g, () => { blanks++; return "____"; });
+  return blanks ? out.trim() : null;
+}
+let session = null;
+function renderRecall() {
+  const box = $("recall");
+  box.innerHTML = "";
+  if (!session || session.i >= session.keys.length) {
+    const due = dueKeys();
+    if (session && session.i >= session.keys.length && session.keys.length) {
+      box.appendChild(el("h2", { class: "v" }, "Done"));
+      box.appendChild(el("p", null, "You went through " + session.keys.length + (session.keys.length === 1 ? " topic." : " topics.") + " Remembered: " + session.good + "."));
+      session = null;
+      if (!due.length) { box.appendChild(upcoming()); return; }
+      box.appendChild(button("Keep going (" + due.length + " more due)", () => { renderRecall(); }));
+      return;
+    }
+    if (!due.length) {
+      box.appendChild(el("h2", { class: "v" }, "Recall"));
+      box.appendChild(el("p", null, "Nothing to recall right now."));
+      box.appendChild(upcoming());
+      box.appendChild(el("p", null, el("small", null, "Every article you rate 3 or more comes back here: first after 2 days, then at growing intervals if you remember it, sooner if you don't. Trying to remember is what makes things stick, much more than rereading.")));
+      return;
+    }
+    session = { keys: due.slice(0, 10), i: 0, good: 0 };
+  }
+  const key = session.keys[session.i], c = state.cards[key];
+  box.appendChild(el("div", { class: "meta" }, "Recall " + (session.i + 1) + " of " + session.keys.length));
+  box.appendChild(el("h1", null, c.title));
+  box.appendChild(el("div", { class: "meta" }, "read " + ago(c.at) + (c.n ? " · recalled " + c.n + "×" : "") + " · " + areaOf(key)));
+  box.appendChild(el("p", null, "What do you remember? When, where, who, why it matters. Say it in your head or jot it down."));
+  box.appendChild(el("textarea", { id: "recall-try", rows: "3", "aria-label": "What you remember" }));
+  const hint = el("div", { class: "cloze", hidden: "" });
+  const ans = el("div", { hidden: "" });
+  const grades = el("div", { hidden: "" });
+  const bHint = button("Hint", async () => {
+    await ensureLead(key);
+    const cz = clozeOf(c);
+    hint.textContent = cz || "No hint for this one.";
+    hint.hidden = false; bHint.disabled = true;
+  });
+  const bShow = button("Show answer", async () => {
+    bShow.disabled = true;
+    await ensureLead(key);
+    ans.innerHTML = "";
+    ans.appendChild(el("hr"));
+    if (c.lead) c.lead.split("\n\n").forEach(p => ans.appendChild(el("p", null, p)));
+    else ans.appendChild(el("p", null, el("small", null, "Could not load the summary (offline?).")));
+    const n = state.notes[key];
+    if (n && n.text) ans.appendChild(el("p", null, el("b", null, "Your note: "), n.text));
+    state.quotes.filter(q => q.key === key).forEach(q => ans.appendChild(el("blockquote", null, q.text)));
+    ans.appendChild(el("p", null, linkTo("Reopen the article", () => openEntry(key, c.title, c.lang, "Rereading after recall."))));
+    ans.hidden = false; grades.hidden = false;
+  });
+  box.appendChild(el("div", null, bHint, bShow));
+  box.appendChild(hint);
+  box.appendChild(ans);
+  const grade = g => {
+    const now = Date.now(), jit = 0.9 + Math.random() * 0.2;
+    if (g === 0) { c.iv = 1; c.lapses++; }
+    else if (g === 1) c.iv = Math.max(2, Math.round(c.iv * 1.4));
+    else { c.iv = Math.min(365, Math.round(c.iv * (c.lapses > 2 ? 2 : 2.5))); session.good++; }
+    c.due = now + c.iv * jit * DAY;
+    c.n++;
+    state.recalls[today()] = (state.recalls[today()] || 0) + 1;
+    session.i++;
+    saveState(); paintNav(); paintStatline();
+    renderRecall();
+    window.scrollTo(0, 0);
+  };
+  grades.appendChild(el("div", null, "How did it go?"));
+  grades.appendChild(el("div", null, button("Forgot", () => grade(0)), button("Vaguely", () => grade(1)), button("Got it", () => grade(2))));
+  box.appendChild(grades);
+}
+function upcoming() {
+  const ks = Object.keys(state.cards).sort((a, b) => state.cards[a].due - state.cards[b].due);
+  if (!ks.length) return el("p", null, el("small", null, "No topics in recall yet."));
+  const n = state.cards[ks[0]];
+  const d = Math.max(1, Math.ceil((n.due - Date.now()) / DAY));
+  return el("p", null, el("small", null, ks.length + " topics in recall. Next: “" + n.title + "” in " + d + (d === 1 ? " day." : " days.")));
+}
+
+/* ================= passages ================= */
+let lastSel = "";
+document.addEventListener("selectionchange", () => {
+  const s = window.getSelection();
+  const txt = s ? s.toString().trim() : "";
+  const inArt = s && s.rangeCount && $("article").contains(s.getRangeAt(0).commonAncestorContainer);
+  if (txt.length >= 15 && inArt && view === "read") { lastSel = txt; $("passbar").hidden = false; }
+  else if (!txt) setTimeout(() => { const t = window.getSelection(); if (!t || !t.toString().trim()) $("passbar").hidden = true; }, 400);
+});
+$("btn-pass").addEventListener("pointerdown", e => e.preventDefault());
+$("btn-pass").addEventListener("click", () => {
+  if (!current || !lastSel) return;
+  state.quotes.push({ key: current.key, title: current.title, lang: current.lang, text: lastSel.slice(0, 2000), at: Date.now() });
   saveState();
+  lastSel = "";
+  try { window.getSelection().removeAllRanges(); } catch (e) { }
+  $("passbar").hidden = true;
+  toast("Passage saved to your notebook.");
+  paintPrev();
+});
+
+/* ================= notebook ================= */
+function renderNotes() {
+  const box = $("notes"), q = $("q").value.trim().toLowerCase(), only = $("only-notes").checked;
+  box.innerHTML = "";
+  const keys = new Set(Object.keys(state.ratings).filter(isRead).concat(Object.keys(state.notes), state.quotes.map(x => x.key)));
+  let list = Array.from(keys).map(k => {
+    const r = state.ratings[k], n = state.notes[k], qs = state.quotes.filter(x => x.key === k);
+    const title = (r && r.title) || (n && n.title) || (qs[0] && qs[0].title) || k;
+    const lang = (r && r.lang) || (n && n.lang) || (qs[0] && qs[0].lang) || "en";
+    const at = Math.max(r ? r.at : 0, n ? n.at : 0, qs.length ? qs[qs.length - 1].at : 0);
+    return { k, r, n, qs, title, lang, at };
+  });
+  if (only) list = list.filter(e => (e.n && e.n.text) || e.qs.length);
+  if (q) list = list.filter(e => (e.title + " " + (e.n ? e.n.text : "") + " " + e.qs.map(x => x.text).join(" ")).toLowerCase().indexOf(q) >= 0);
+  list.sort((a, b) => b.at - a.at);
+  $("notes-msg").textContent = list.length + (list.length === 1 ? " entry" : " entries");
+  if (!list.length) { box.appendChild(el("p", null, el("small", null, q ? "Nothing matches." : "Rate articles, write one-line notes and select passages to save them. They all collect here."))); return; }
+  list.slice(0, 300).forEach(e => {
+    const div = el("div", { class: "entry" });
+    div.appendChild(linkTo(e.title, () => openEntry(e.k, e.title, e.lang, "From your notebook.")));
+    div.appendChild(el("small", null, " " + (e.r ? (e.r.skip ? "skipped" : e.r.r + "/5") + " · " : "") + areaOf(e.k) + " · " + fmtDate(e.at)));
+    if (e.n && e.n.text) div.appendChild(el("div", { class: "note" }, e.n.text));
+    e.qs.forEach(x => {
+      const bq = el("blockquote", null, x.text + " ");
+      bq.appendChild(linkTo("remove", () => { state.quotes = state.quotes.filter(y => y !== x); saveState(); renderNotes(); }));
+      div.appendChild(bq);
+    });
+    box.appendChild(div);
+  });
+}
+function notebookText() {
+  const lines = ["# Vital Reader notebook", "", "Exported " + fmtDate(Date.now()), ""];
+  const keys = new Set(Object.keys(state.ratings).filter(isRead).concat(Object.keys(state.notes), state.quotes.map(x => x.key)));
+  Array.from(keys).sort((a, b) => ((state.ratings[b] || {}).at || 0) - ((state.ratings[a] || {}).at || 0)).forEach(k => {
+    const r = state.ratings[k], n = state.notes[k], qs = state.quotes.filter(x => x.key === k);
+    const title = (r && r.title) || (n && n.title) || (qs[0] && qs[0].title) || k;
+    lines.push("## " + title + (r && !r.skip ? " (" + r.r + "/5)" : ""));
+    if (state.dates[k]) lines.push("_" + fmtRange(state.dates[k]) + "_");
+    if (n && n.text) lines.push("", n.text);
+    qs.forEach(x => lines.push("", "> " + x.text.replace(/\n/g, "\n> ")));
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+async function shareText(filename, text, mime, msgEl) {
+  const file = new File([text], filename, { type: mime });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: filename }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const a = el("a", { href: URL.createObjectURL(file), download: filename }, "Download " + filename);
+  msgEl.innerHTML = ""; msgEl.appendChild(a);
 }
 
-function rate(r, skip) {
-  if (!current) return;
-  rateKey(current.key, current.it, r, skip);
-  paintRating();
-  $("rate-msg").textContent = skip ? "Skipped. It will come up less for similar topics." : "Saved: " + r + "/5.";
-  renderSide();
-  if (skip) next(true);
+/* ================= map ================= */
+function bar(frac, w) {
+  w = w || 14;
+  const k = Math.round(Math.max(0, Math.min(1, frac)) * w);
+  return "#".repeat(k) + ".".repeat(w - k);
+}
+function pad(s, n) { s = String(s); return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length); }
+function renderMap() {
+  const box = $("map");
+  box.innerHTML = "";
+  if (!items.length) { box.textContent = "Topic lists are not loaded yet."; return; }
+  const secs = gapSections();
+  const ar = {};
+  AREAS.forEach(a => { ar[a] = { tot: 0, read: 0, l3: 0, l3read: 0 }; });
+  secs.forEach(s => { const o = ar[s.d]; if (!o) return; o.tot += s.tot; o.read += s.read; o.l3 += s.l3; o.l3read += s.l3read; });
+  const all = AREAS.reduce((x, a) => ({ read: x.read + ar[a].read, tot: x.tot + ar[a].tot, l3: x.l3 + ar[a].l3, l3read: x.l3read + ar[a].l3read }), { read: 0, tot: 0, l3: 0, l3read: 0 });
+  box.appendChild(el("p", null, "You've read " + all.read + " of " + all.tot + " topics. Of the essential ones: " + all.l3read + " of " + all.l3 + "."));
+  let txt = pad("area", 11) + pad("all", 15) + "      " + "essential\n";
+  AREAS.forEach(a => {
+    const o = ar[a];
+    txt += pad(a, 11) + bar(o.tot ? o.read / o.tot : 0, 12) + pad(" " + o.read + "/" + o.tot, 9) + bar(o.l3 ? o.l3read / o.l3 : 0, 8) + " " + o.l3read + "/" + o.l3 + "\n";
+  });
+  box.appendChild(el("pre", { class: "bars" }, txt));
+  box.appendChild(el("p", null, el("small", null, "Tap a section to read something from it. “gap” marks sections where you've read nothing yet.")));
+  AREAS.forEach(a => {
+    const list = secs.filter(s => s.d === a).sort((x, y) => (x.read / x.tot) - (y.read / y.tot) || y.tot - x.tot);
+    if (!list.length) return;
+    const det = el("details", null, el("summary", null, a + " (" + ar[a].read + "/" + ar[a].tot + ")"));
+    list.forEach(s => {
+      const name = s.s.split(SEP).slice(1).join(SEP) || s.s;
+      det.appendChild(el("div", { class: "meta" },
+        el("span", { style: "font-family:monospace;font-size:13px" }, bar(s.read / s.tot, 8) + " "),
+        linkTo(name, () => { if (location.hash !== "#read") location.hash = "#read"; fillGap(s.key); }),
+        " " + s.read + "/" + s.tot + (s.read === 0 ? " · gap" : "")));
+    });
+    box.appendChild(det);
+  });
+}
+function renderTaste() {
+  const st = stats(), tt = $("taste");
+  const rows = [];
+  Object.keys(st.d).forEach(k => rows.push([k, st.d[k]]));
+  Object.keys(st.s1).forEach(k => { if (k.indexOf(SEP) > 0) rows.push([k, st.s1[k]]); });
+  rows.sort((a, b) => b[1].sum / b[1].n - a[1].sum / a[1].n);
+  tt.innerHTML = "";
+  if (!rows.length) { tt.appendChild(el("small", null, "Rate a few articles and this fills in.")); return; }
+  const ul = el("ul", { class: "plain" });
+  rows.slice(0, 30).forEach(r => {
+    const v = r[1].sum / r[1].n;
+    ul.appendChild(el("li", null, r[0].split(SEP).slice(-2).join(SEP) + ": " + (v > 0 ? "+" : "") + v.toFixed(1) + " (" + r[1].n + " read)"));
+  });
+  tt.appendChild(el("small", null, "Score per area: 0 is neutral, +2 means you rate it about 5/5. It includes how far you actually read, not just stars."));
+  tt.appendChild(ul);
 }
 
-/* ---------- Kindle (EPUB) ---------- */
-function esc(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/* ================= more / numbers ================= */
+function streak() {
+  const ok = d => (state.days[d] || 0) >= 300 || (state.recalls[d] || 0) > 0;
+  const day = new Date();
+  if (!ok(today(day))) day.setDate(day.getDate() - 1);
+  let n = 0;
+  while (ok(today(day)) && n < 3650) { n++; day.setDate(day.getDate() - 1); }
+  return n;
 }
+function secsSince(daysBack) {
+  let s = 0;
+  const d = new Date();
+  for (let i = 0; i < daysBack; i++) { s += state.days[today(d)] || 0; d.setDate(d.getDate() - 1); }
+  return s;
+}
+function hm(s) { const m = Math.round(s / 60); return m < 60 ? m + " min" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; }
+function paintStatline() {
+  const s = streak(), t = state.days[today()] || 0;
+  $("statline").textContent = (s ? "· " + s + "-day streak " : "") + (t >= 60 ? "· " + hm(t) + " today" : "");
+}
+function paintNav() {
+  const n = dueKeys().length;
+  $("due-n").textContent = n ? " (" + n + ")" : "";
+  $("due-nudge").hidden = !n;
+  $("due-link").textContent = n + (n === 1 ? " topic" : " topics") + " to recall, about a minute each →";
+  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + view));
+}
+function renderMore() {
+  const read = Object.keys(state.ratings).filter(isRead).length;
+  const total = Object.keys(state.days).reduce((s, d) => s + state.days[d], 0);
+  const box = $("numbers");
+  box.innerHTML = "";
+  [
+    "Read: " + read + " topics" + (items.length ? " of " + items.length : ""),
+    "Time reading: " + hm(secsSince(7)) + " this week, " + hm(secsSince(30)) + " in 30 days, " + hm(total) + " in total",
+    "Streak: " + streak() + (streak() === 1 ? " day" : " days") + " (5+ minutes of reading or one recall a day)",
+    "Notes: " + Object.keys(state.notes).length + " · passages: " + state.quotes.length + " · in recall: " + Object.keys(state.cards).length
+  ].forEach(t => box.appendChild(el("div", null, t)));
+  $("fs-now").textContent = state.fs + "px";
+  const off = $("offline");
+  off.innerHTML = "";
+  off.appendChild(el("div", null, state.queue.length + " of " + QUEUE_SIZE + " next articles saved for offline. “Next for me” uses them first, so they also open instantly."));
+  off.appendChild(el("div", null, button("Refill now", () => { refillQueue().then(renderMore); }), button("Clear", async () => {
+    for (const q of state.queue) await idb.del("q|" + q.t);
+    state.queue = []; saveState(); renderMore();
+  })));
+  off.appendChild(el("small", null, ("serviceWorker" in navigator && navigator.serviceWorker.controller) ? "The app itself is cached, so it opens without a connection." : "To open the app with no connection at all, upload sw.js next to index.html."));
+}
+
+/* ================= offline queue ================= */
+let filling = false;
+async function refillQueue() {
+  if (filling || !items.length || navigator.onLine === false) return;
+  filling = true;
+  try {
+    while (state.queue.length < QUEUE_SIZE) {
+      const c = pick({ personal: true, n: 4 });
+      if (!c.picks.length) break;
+      const it = await chooseByLength(c.picks);
+      let lang = state.lang, t = await langTitle(it.t, lang);
+      if (!t) { lang = "en"; t = it.t; }
+      const a = await fetchArticle(t, lang);
+      await idb.put("q|" + it.t, a);
+      state.queue.push({ t: it.t, why: whyText(it, c.st, true), at: Date.now() });
+      saveState();
+    }
+  } catch (e) { /* offline or Wikipedia busy: try later */ }
+  filling = false;
+}
+async function takeQueued() {
+  while (state.queue.length) {
+    const q = state.queue.shift();
+    saveState();
+    const a = await idb.get("q|" + q.t);
+    idb.del("q|" + q.t);
+    if (a && !state.ratings[q.t]) return { a, it: byTitle[q.t] || null, why: q.why };
+  }
+  return null;
+}
+
+/* ================= Kindle (EPUB) ================= */
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 function toXhtml(html) {
-  var d = document.implementation.createHTMLDocument("x");
+  const d = document.implementation.createHTMLDocument("x");
   d.body.innerHTML = html;
-  d.body.querySelectorAll("[data-inapp]").forEach(function (a) { a.removeAttribute("data-inapp"); });
-  d.body.querySelectorAll("[id]").forEach(function (n) { if (!/^[A-Za-z_][\w.-]*$/.test(n.id)) n.removeAttribute("id"); });
-  var ser = new XMLSerializer(), out = "";
-  Array.prototype.forEach.call(d.body.childNodes, function (n) { out += ser.serializeToString(n); });
+  d.body.querySelectorAll("[data-inapp]").forEach(a => a.removeAttribute("data-inapp"));
+  d.body.querySelectorAll("[id]").forEach(n => { if (!/^[A-Za-z_][\w.-]*$/.test(n.id)) n.removeAttribute("id"); });
+  const ser = new XMLSerializer();
+  let out = "";
+  Array.prototype.forEach.call(d.body.childNodes, n => { out += ser.serializeToString(n); });
   return out.replace(/ xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/g, "");
 }
 function uuid() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16);
-  });
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); });
 }
 function xhtmlDoc(title, lang, body) {
   return '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="' + lang + '" lang="' + lang + '">\n<head><meta charset="utf-8"/><title>' + esc(title) + '</title><link rel="stylesheet" type="text/css" href="style.css"/></head>\n<body>\n' + body + '\n</body>\n</html>';
 }
-
-/* chapters: [{title, lang, html, meta}] */
 function buildEpub(bookTitle, lang, chapters) {
   if (!window.JSZip) return Promise.reject(new Error("the ebook library did not load"));
-  var zip = new JSZip();
+  const zip = new JSZip();
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file("META-INF/container.xml", '<?xml version="1.0" encoding="utf-8"?>\n<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
   zip.file("OEBPS/style.css", "body{font-family:serif;line-height:1.5}h1{font-size:1.5em;margin:0 0 .3em}h2{font-size:1.2em;margin-top:1.4em}h3{font-size:1.05em}.meta{font-size:.85em;color:#555;margin-bottom:1.2em}table{border-collapse:collapse;font-size:.85em}td,th{border:1px solid #999;padding:2px 4px}blockquote{margin-left:1em}");
-  var id = uuid();
-  var manifest = "", spine = "", navLis = "", ncxPts = "";
-  chapters.forEach(function (c, i) {
-    var f = "c" + (i + 1) + ".xhtml";
-    var xb = toXhtml(c.html);
-    var body = "<h1>" + esc(c.title) + "</h1>\n<p class=\"meta\">" + esc(c.meta) + "</p>\n" + xb +
+  const id = uuid();
+  let manifest = "", spine = "", navLis = "", ncxPts = "";
+  chapters.forEach((c, i) => {
+    const f = "c" + (i + 1) + ".xhtml";
+    const xb = toXhtml(c.html);
+    const body = "<h1>" + esc(c.title) + "</h1>\n<p class=\"meta\">" + esc(c.meta) + "</p>\n" + xb +
       "\n<p class=\"meta\">Source: Wikipedia, “" + esc(c.title) + "” (" + c.lang + ".wikipedia.org), CC BY-SA 4.0.</p>";
     zip.file("OEBPS/" + f, xhtmlDoc(c.title, c.lang, body));
     manifest += '<item id="c' + (i + 1) + '" href="' + f + '" media-type="application/xhtml+xml"' + (/<math[\s>]/.test(xb) ? ' properties="mathml"' : "") + '/>\n';
@@ -582,43 +1412,33 @@ function buildEpub(bookTitle, lang, chapters) {
   });
   zip.file("OEBPS/nav.xhtml", xhtmlDoc("Contents", lang, '<nav epub:type="toc" id="toc"><h1>Contents</h1><ol>\n' + navLis + "</ol></nav>"));
   zip.file("OEBPS/toc.ncx", '<?xml version="1.0" encoding="utf-8"?>\n<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="urn:uuid:' + id + '"/></head><docTitle><text>' + esc(bookTitle) + "</text></docTitle><navMap>\n" + ncxPts + "</navMap></ncx>");
-  var modified = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const modified = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   zip.file("OEBPS/content.opf", '<?xml version="1.0" encoding="utf-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="' + lang + '">\n<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n<dc:identifier id="uid">urn:uuid:' + id + "</dc:identifier>\n<dc:title>" + esc(bookTitle) + "</dc:title>\n<dc:language>" + lang + "</dc:language>\n<dc:creator>Wikipedia contributors</dc:creator>\n<meta property=\"dcterms:modified\">" + modified + '</meta>\n</metadata>\n<manifest>\n<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>\n<item id="css" href="style.css" media-type="text/css"/>\n' + manifest + '</manifest>\n<spine toc="ncx">\n<itemref idref="nav"/>\n' + spine + "</spine>\n</package>");
   return zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
 }
-
 function safeName(s) { return s.replace(/[^\wÀ-ſ -]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "article"; }
-
 /* Building is async, and iPhones only open the share sheet straight from a tap, so the file gets its own Share button. */
 function offerFile(blob, filename, sentItems) {
-  var file = new File([blob], filename, { type: "application/epub+zip" });
-  var box = $("kindle-out");
+  const file = new File([blob], filename, { type: "application/epub+zip" });
+  const box = $("kindle-out");
   box.innerHTML = "";
-  var p = document.createElement("div");
-  p.appendChild(document.createTextNode("Ready: " + filename + " "));
-  var canShare = navigator.canShare && navigator.canShare({ files: [file] });
-  var markSent = function () {
-    sentItems.forEach(function (s) {
-      if (state.ratings[s.t] || state.kindle.some(function (k) { return k.t === s.t; })) return;
-      state.kindle.unshift(s);
-    });
+  const p = el("div", null, "Ready: " + filename + " ");
+  const canShare = navigator.canShare && navigator.canShare({ files: [file] });
+  const markSent = () => {
+    sentItems.forEach(s => { if (state.ratings[s.t] || state.kindle.some(k => k.t === s.t)) return; state.kindle.unshift(s); });
     saveState(); renderPending();
   };
   if (canShare) {
-    var b = document.createElement("button");
-    b.textContent = "Share to Kindle";
-    b.addEventListener("click", function () {
-      navigator.share({ files: [file], title: filename }).then(function () {
-        markSent(); box.innerHTML = "<small>Sent. Rate it here after reading.</small>";
-      }).catch(function (e) {
+    p.appendChild(button("Share to Kindle", () => {
+      navigator.share({ files: [file], title: filename }).then(() => {
+        markSent(); box.innerHTML = "<small>Sent. Rate it here after reading (Read › Kindle).</small>";
+      }).catch(e => {
         if (e && e.name === "AbortError") return;
         status("Sharing failed: " + (e && e.message) + ". Use Save file instead.");
       });
-    });
-    p.appendChild(b);
+    }));
   }
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(file); a.download = filename; a.textContent = canShare ? "or save file" : "Save file";
+  const a = el("a", { href: URL.createObjectURL(file), download: filename }, canShare ? "or save file" : "Save file");
   a.addEventListener("click", markSent);
   p.appendChild(document.createTextNode(" "));
   p.appendChild(a);
@@ -626,185 +1446,211 @@ function offerFile(blob, filename, sentItems) {
   status("");
   box.scrollIntoView({ block: "nearest" });
 }
-
-function mins(html) {
-  var d = document.createElement("div"); d.innerHTML = html;
-  return Math.max(1, Math.round(((d.textContent.match(/\S+/g) || []).length) / WPM));
-}
 function chapterMeta(it, html) {
-  return (it ? it.d + " · " + it.p.split(" › ").slice(1).join(" › ") + " · " : "") + "about " + mins(html) + " min";
+  const d = document.createElement("div"); d.innerHTML = html;
+  return (it ? it.d + " · " + it.p.split(SEP).slice(1).join(SEP) + " · " : "") + "about " + minutesOf(d.textContent) + " min";
 }
-
 function sendCurrent() {
   if (!current || !current.html) return;
   status("Making the ebook…");
-  var ch = [{ title: current.title, lang: current.lang, html: current.html, meta: chapterMeta(current.it, current.html) }];
-  buildEpub(current.title, current.lang, ch).then(function (blob) {
-    offerFile(blob, safeName(current.title) + ".epub", [{ t: current.key, title: current.title, lang: current.lang, at: Date.now() }]);
-  }).catch(function (e) { status("Could not make the ebook: " + e.message); });
+  const cur = current;
+  buildEpub(cur.title, cur.lang, [{ title: cur.title, lang: cur.lang, html: cur.html, meta: chapterMeta(cur.it, cur.html) }])
+    .then(blob => offerFile(blob, safeName(cur.title) + ".epub", [{ t: cur.key, title: cur.title, lang: cur.lang, at: Date.now() }]))
+    .catch(e => status("Could not make the ebook: " + e.message));
 }
-
-function makeBundle() {
+async function makeBundle() {
   if (!items.length) { status("Topic lists are not loaded yet."); return; }
-  var n = +$("bundle-n").value, domain = $("domain").value, chosen = {}, chapters = [], sent = [];
-  var btn = $("btn-bundle"); btn.disabled = true;
+  const n = +$("bundle-n").value, domain = $("domain").value, chosen = {}, chapters = [], sent = [];
+  const btn = $("btn-bundle");
+  btn.disabled = true;
   $("kindle-out").innerHTML = "";
-  var chain = Promise.resolve();
-  for (var i = 0; i < n; i++) {
-    chain = chain.then(function () {
-      var c = pickCandidates(true, domain, 4, chosen);
-      if (!c.picks.length) return;
-      return chooseByLength(c.picks).then(function (it) {
-        chosen[it.t] = 1;
-        status("Fetching article " + (chapters.length + 1) + " of " + n + ": " + it.t + "…");
-        return langTitle(it.t, state.lang).then(function (t) {
-          var lang = t ? state.lang : "en";
-          return fetchArticle(t || it.t, lang).then(function (a) {
-            chapters.push({ title: a.title, lang: lang, html: a.html, meta: chapterMeta(it, a.html) });
-            sent.push({ t: it.t, title: a.title, lang: lang, at: Date.now() });
-          });
-        }).catch(function () {});
-      });
-    });
-  }
-  chain.then(function () {
+  try {
+    for (let i = 0; i < n; i++) {
+      const c = pick({ personal: true, domain, n: 4, exclude: chosen });
+      if (!c.picks.length) break;
+      const it = await chooseByLength(c.picks);
+      chosen[it.t] = 1;
+      status("Fetching article " + (chapters.length + 1) + " of " + n + ": " + it.t + "…");
+      try {
+        const t = await langTitle(it.t, state.lang);
+        const lang = t ? state.lang : "en";
+        const a = await fetchArticle(t || it.t, lang);
+        chapters.push({ title: a.title, lang, html: a.html, meta: chapterMeta(it, a.html) });
+        sent.push({ t: it.t, title: a.title, lang, at: Date.now() });
+        const card = leadFrom(a.html);
+        sent[sent.length - 1].lead = card;
+      } catch (e) { /* skip this one */ }
+    }
     if (!chapters.length) throw new Error("no articles could be fetched");
     status("Making the ebook…");
-    var date = new Date().toISOString().slice(0, 10);
-    var total = chapters.reduce(function (s, c) { return s + mins(c.html); }, 0);
-    var title = "Vital Reader " + date;
-    return buildEpub(title + " (" + chapters.length + " articles, ~" + total + " min)", state.lang, chapters).then(function (blob) {
-      offerFile(blob, "vital-reader-" + date + ".epub", sent);
-    });
-  }).catch(function (e) { status("Could not make the bundle: " + e.message); })
-    .then(function () { btn.disabled = false; });
+    const date = today();
+    const total = chapters.reduce((s, c) => { const d = document.createElement("div"); d.innerHTML = c.html; return s + minutesOf(d.textContent); }, 0);
+    const blob = await buildEpub("Vital Reader " + date + " (" + chapters.length + " articles, ~" + total + " min)", state.lang, chapters);
+    offerFile(blob, "vital-reader-" + date + ".epub", sent);
+  } catch (e) { status("Could not make the bundle: " + e.message); }
+  btn.disabled = false;
 }
-
 function renderPending() {
-  var box = $("pending");
+  const box = $("pending");
   box.innerHTML = "";
-  if (!state.kindle.length) { box.innerHTML = "<small>Nothing waiting.</small>"; return; }
-  state.kindle.forEach(function (k) {
-    var row = document.createElement("div");
-    var a = document.createElement("a"); a.href = "#"; a.textContent = k.title;
-    a.addEventListener("click", function (e) { e.preventDefault(); backStack = []; show({ title: k.title, lang: k.lang, it: byTitle[k.t], key: k.t, why: "Sent to your Kindle." }); });
-    row.appendChild(a);
-    row.appendChild(document.createTextNode(" "));
-    [1, 2, 3, 4, 5].forEach(function (r) {
-      var b = document.createElement("button"); b.textContent = r;
-      b.addEventListener("click", function () { rateKey(k.t, byTitle[k.t], r, false); renderPending(); renderSide(); });
-      row.appendChild(b);
-    });
-    var s = document.createElement("button"); s.textContent = "didn't read";
-    s.addEventListener("click", function () { rateKey(k.t, byTitle[k.t], 0, true); renderPending(); renderSide(); });
-    row.appendChild(s);
+  if (!state.kindle.length) { box.appendChild(el("small", null, "Nothing waiting.")); return; }
+  state.kindle.forEach(k => {
+    const row = el("div", null, linkTo(k.title, () => openEntry(k.t, k.title, k.lang, "Sent to your Kindle.")), " ");
+    const rateIt = r => {
+      rateKey(k.t, byTitle[k.t], r, r === 0, k.title, k.lang);
+      const c = state.cards[k.t];
+      if (c && k.lead && !c.lead) { c.lead = k.lead.text; c.terms = k.lead.terms; saveState(); }
+      if (r === 0) { renderPending(); return; }
+      row.innerHTML = "";
+      const inp = el("input", { type: "text", placeholder: "one line you want to keep", "aria-label": "Note for " + k.title, style: "width:100%;box-sizing:border-box" });
+      row.appendChild(el("div", null, k.title + ": " + r + "/5"));
+      row.appendChild(inp);
+      row.appendChild(button("Save note", () => {
+        const v = inp.value.trim();
+        if (v) state.notes[k.t] = { text: v, at: Date.now(), title: k.title, lang: k.lang };
+        saveState(); renderPending();
+      }));
+      row.appendChild(button("No note", renderPending));
+    };
+    [1, 2, 3, 4, 5].forEach(r => row.appendChild(button(String(r), () => rateIt(r))));
+    row.appendChild(button("didn't read", () => rateIt(0)));
     box.appendChild(row);
   });
 }
-
-function renderSide() {
-  var h = $("hist");
-  var ts = Object.keys(state.ratings).sort(function (a, b) { return state.ratings[b].at - state.ratings[a].at; }).slice(0, 60);
-  if (!ts.length) { h.innerHTML = "<small>Nothing yet.</small>"; }
-  else {
-    var ul = document.createElement("ul"); ul.className = "hist";
-    ts.forEach(function (t) {
-      var r = state.ratings[t];
-      var li = document.createElement("li");
-      var a = document.createElement("a"); a.href = "#"; a.textContent = t;
-      a.addEventListener("click", function (e) { e.preventDefault(); backStack = []; show({ enTitle: t, lang: state.lang, it: byTitle[t], why: "From your reading history." }); });
-      li.appendChild(a);
-      li.appendChild(document.createTextNode(" — " + (r.skip ? "skipped" : r.r + "/5") + (r.d ? " · " + r.d : "")));
-      ul.appendChild(li);
-    });
-    h.innerHTML = ""; h.appendChild(ul);
-  }
-  var st = stats(), tt = $("taste");
-  var rows = [];
-  Object.keys(st.d).forEach(function (k) { rows.push(["area", k, st.d[k]]); });
-  Object.keys(st.s1).forEach(function (k) { if (k.indexOf(" › ") > 0) rows.push(["section", k, st.s1[k]]); });
-  rows.sort(function (a, b) { return b[2].sum / b[2].n - a[2].sum / a[2].n; });
-  if (!rows.length) { tt.innerHTML = "<small>Rate a few articles and this fills in.</small>"; return; }
-  var ul2 = document.createElement("ul"); ul2.className = "hist";
-  rows.slice(0, 30).forEach(function (r) {
-    var li = document.createElement("li");
-    li.textContent = r[1].split(" › ").slice(-2).join(" › ") + ": avg " + (3 + r[2].sum / r[2].n).toFixed(1) + " over " + r[2].n;
-    ul2.appendChild(li);
-  });
-  var n = Object.keys(state.ratings).length;
-  tt.innerHTML = "<small>" + n + " rated out of " + items.length + " topics.</small>";
-  tt.appendChild(ul2);
+function renderLater() {
+  const box = $("later");
+  box.innerHTML = "";
+  $("later-n").textContent = state.later.length;
+  if (!state.later.length) { box.appendChild(el("small", null, "Tap “Later” on an article, or “later” next to a thread suggestion.")); return; }
+  state.later.forEach(l => box.appendChild(el("div", null,
+    linkTo(l.title, () => openEntry(l.key, l.title, l.lang, "From your Later list.")),
+    " ", button("remove", () => { state.later = state.later.filter(x => x !== l); saveState(); renderLater(); }))));
 }
 
-/* ---------- wiring ---------- */
-$("btn-pick").addEventListener("click", function () { next(true); });
-$("btn-next2").addEventListener("click", function () { next(true); });
-$("btn-surprise").addEventListener("click", function () { next(false); });
-$("btn-skip").addEventListener("click", function () { rate(0, true); });
+/* ================= routing ================= */
+const VIEWS = ["read", "recall", "notes", "map", "time", "more"];
+function route() {
+  let v = (location.hash || "#read").slice(1);
+  if (VIEWS.indexOf(v) < 0) v = "read";
+  if (view === "read" && v !== "read") { readY = window.scrollY; finishCurrent(); }
+  const was = view;
+  view = v;
+  VIEWS.forEach(x => { $("v-" + x).hidden = x !== v; });
+  $("passbar").hidden = true;
+  paintNav();
+  if (v === "recall") renderRecall();
+  if (v === "notes") renderNotes();
+  if (v === "map") { renderMap(); renderTaste(); }
+  if (v === "time") renderTimeline();
+  if (v === "more") renderMore();
+  if (v === "read") { renderLater(); renderPending(); if (was !== "read") window.scrollTo(0, readY); }
+  else window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+
+/* ================= wiring ================= */
+$("btn-pick").addEventListener("click", () => next(true));
+$("btn-next2").addEventListener("click", () => next(true));
+$("btn-surprise").addEventListener("click", () => next(false));
+$("btn-gap").addEventListener("click", () => fillGap());
+$("btn-skip").addEventListener("click", () => rate(0, true));
+$("btn-note").addEventListener("click", saveNote);
+$("btn-later").addEventListener("click", toggleLater);
 $("btn-kindle1").addEventListener("click", sendCurrent);
 $("btn-bundle").addEventListener("click", makeBundle);
-renderPending();
-document.querySelectorAll("#rate button[data-r]").forEach(function (b) {
-  b.addEventListener("click", function () { rate(+b.getAttribute("data-r"), false); });
+document.querySelectorAll("#rate button[data-r]").forEach(b => b.addEventListener("click", () => rate(+b.getAttribute("data-r"), false)));
+$("btn-back").addEventListener("click", () => {
+  const prev = backStack.pop();
+  if (!prev) return;
+  finishCurrent();
+  displayArticle(prev.a, { it: prev.it, why: prev.why, key: prev.key, thread: prev.thread });
 });
-$("btn-back").addEventListener("click", function () {
-  var prev = backStack.pop();
-  if (prev) show({ title: prev.title, lang: prev.lang, it: prev.it, why: prev.why, key: prev.key });
-});
-$("btn-otherlang").addEventListener("click", function () {
+$("btn-otherlang").addEventListener("click", async () => {
   if (!current) return;
-  var to = current.lang === "en" ? "it" : "en";
-  api(current.lang, { action: "query", prop: "langlinks", lllang: to, redirects: "1", titles: current.title }).then(function (j) {
-    var pg = (j.query.pages || [])[0];
-    var ll = pg && pg.langlinks && pg.langlinks[0];
+  const to = current.lang === "en" ? "it" : "en", cur = current;
+  try {
+    const j = await api(cur.lang, { action: "query", prop: "langlinks", lllang: to, redirects: "1", titles: cur.title });
+    const pg = (j.query.pages || [])[0], ll = pg && pg.langlinks && pg.langlinks[0];
     if (!ll) { status(to === "it" ? "No Italian version of this article." : "No English version of this article."); return; }
-    show({ title: ll.title, lang: to, it: current.it, why: current.why, key: current.key });
-  }).catch(function (e) { status("Could not switch language: " + e.message); });
+    finishCurrent();
+    show({ title: ll.title, lang: to, it: cur.it, why: cur.why, key: cur.key, thread: cur.thread });
+  } catch (e) { status("Could not switch language: " + e.message); }
 });
-$("article").addEventListener("click", function (e) {
-  var a = e.target.closest("a[data-inapp]");
+$("article").addEventListener("click", e => {
+  const a = e.target.closest("a[data-inapp]");
   if (!a) return;
   e.preventDefault();
-  var t = a.getAttribute("data-inapp");
-  show({ title: t, lang: current.lang, pushBack: true, why: "A detour from “" + current.title + "”." });
+  finishCurrent();
+  show({ title: a.getAttribute("data-inapp"), lang: current.lang, pushBack: true, thread: current.thread, why: "A detour from “" + current.title + "”." });
 });
-["en", "it"].forEach(function (l) {
-  var r = $("lang-" + l);
+["en", "it"].forEach(l => {
+  const r = $("lang-" + l);
   r.checked = state.lang === l;
-  r.addEventListener("change", function () { if (r.checked) { state.lang = l; saveState(); } });
+  r.addEventListener("change", async () => {
+    if (!r.checked) return;
+    state.lang = l;
+    for (const q of state.queue) await idb.del("q|" + q.t);
+    state.queue = [];
+    saveState();
+    setTimeout(refillQueue, 1000);
+  });
 });
-$("btn-export").addEventListener("click", function () { $("backup").value = JSON.stringify(state); });
-$("btn-copy").addEventListener("click", function () {
-  var v = JSON.stringify(state); $("backup").value = v;
-  (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () {
-    $("set-msg").textContent = "Copied.";
-  }).catch(function () { $("backup").select(); $("set-msg").textContent = "Text selected, copy it by hand."; });
+$("q").addEventListener("input", renderNotes);
+$("only-notes").addEventListener("change", renderNotes);
+$("btn-export-notes").addEventListener("click", () => shareText("vital-reader-notebook-" + today() + ".md", notebookText(), "text/markdown", $("notes-msg")));
+$("btn-dates").addEventListener("click", backfillDates);
+function applyFs() { document.body.style.fontSize = state.fs + "px"; }
+$("fs-down").addEventListener("click", () => { state.fs = Math.max(14, state.fs - 1); applyFs(); saveState(); renderMore(); });
+$("fs-up").addEventListener("click", () => { state.fs = Math.min(28, state.fs + 1); applyFs(); saveState(); renderMore(); });
+function restoreFrom(s) {
+  if (!s || typeof s.ratings !== "object") throw new Error("not a backup");
+  state = s; fillState(); saveState();
+  $("set-msg").textContent = "Restored " + Object.keys(state.ratings).length + " ratings, " + Object.keys(state.notes).length + " notes.";
+  applyFs(); paintNav(); paintStatline(); renderMore();
+}
+$("btn-backup-file").addEventListener("click", () => shareText("vital-reader-backup-" + today() + ".json", JSON.stringify(state), "application/json", $("set-msg")));
+$("restore-file").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  f.text().then(t => restoreFrom(JSON.parse(t))).catch(() => { $("set-msg").textContent = "That file is not a valid backup."; });
 });
-$("btn-import").addEventListener("click", function () {
-  try {
-    var s = JSON.parse($("backup").value);
-    if (!s || typeof s.ratings !== "object") throw new Error();
-    state = s; state.log = state.log || []; state.lang = state.lang || "en"; state.kindle = state.kindle || [];
-    saveState(); renderSide(); renderPending();
-    $("set-msg").textContent = "Restored " + Object.keys(state.ratings).length + " ratings.";
-  } catch (e) { $("set-msg").textContent = "That text is not a valid backup."; }
+$("btn-export").addEventListener("click", () => { $("backup").value = JSON.stringify(state); });
+$("btn-copy").addEventListener("click", () => {
+  const v = JSON.stringify(state); $("backup").value = v;
+  (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => { $("set-msg").textContent = "Copied."; })
+    .catch(() => { $("backup").select(); $("set-msg").textContent = "Text selected, copy it by hand."; });
 });
-$("btn-reload-lists").addEventListener("click", function () {
+$("btn-import").addEventListener("click", () => {
+  try { restoreFrom(JSON.parse($("backup").value)); } catch (e) { $("set-msg").textContent = "That text is not a valid backup."; }
+});
+$("btn-reload-lists").addEventListener("click", () => {
   $("set-msg").textContent = "Reloading…";
-  loadLists(true).then(function () { $("set-msg").textContent = items.length + " topics loaded."; status(""); renderSide(); })
-    .catch(function (e) { $("set-msg").textContent = e.message; });
+  loadLists(true).then(() => { $("set-msg").textContent = items.length + " topics loaded."; status(""); }).catch(e => { $("set-msg").textContent = e.message; });
 });
 
-loadLists(false).then(function () {
-  var counts = {};
-  items.forEach(function (it) { counts[it.d] = (counts[it.d] || 0) + 1; });
+/* ================= start ================= */
+applyFs();
+route();
+paintStatline();
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+
+loadLists(false).then(async () => {
   status(items.length + " topics ready. Press “Next for me”.");
-  renderSide();
-}).catch(function (e) {
+  if (view === "map") { renderMap(); renderTaste(); }
+  if (state.cur) {
+    const a = await idb.get("cur");
+    if (a && a.title === state.cur.title) {
+      displayArticle(a, { it: state.cur.it ? byTitle[state.cur.it] : null, key: state.cur.key, why: state.cur.why, thread: state.cur.thread, restoreY: state.cur.y });
+      status("Picked up where you left off.");
+    }
+  }
+  setTimeout(refillQueue, 3000);
+}).catch(e => {
   status(e.message + " Check the connection and reload the page.");
 });
 
-window.__vr = { parseList: parseList, cleanHeading: cleanHeading };
+window.__vr = { parseList, cleanHeading, buildEpub, clozeOf, leadFrom, datesForQids, parseYear, fmtRange, get state() { return state; }, get current() { return current; }, refillQueue, idb };
 })();
 </script>
 </body>
