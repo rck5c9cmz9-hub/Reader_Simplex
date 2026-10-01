@@ -68,6 +68,13 @@ pre.bars { font-size: 13px; line-height: 1.45; overflow-x: auto; margin: .3em 0;
 #passbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 8px); background: var(--mark); border-top: 1px solid var(--rule); text-align: center; }
 #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 60px); background: var(--fg); color: var(--bg); padding: 4px 12px; font-size: 15px; }
 mark { background: var(--hl); color: inherit; }
+#article:not(.imgs) .vr-img { display: none; }
+.vr-img { margin: 1em 0; }
+.vr-img img { display: block; width: 100%; height: auto; max-height: 75vh; object-fit: contain; }
+.vr-img .cap { color: var(--muted); font-size: 15px; line-height: 1.35; margin-top: .3em; }
+#article .speaking { background: var(--hl); }
+#listenbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 6px); background: var(--mark); border-top: 1px solid var(--rule); text-align: center; font-size: 15px; }
+body.listening #passbar { bottom: calc(env(safe-area-inset-bottom, 0px) + 52px); }
 </style>
 </head>
 <body>
@@ -117,6 +124,8 @@ mark { background: var(--hl); color: inherit; }
       <div class="meta" id="a-why"></div>
       <div class="prev" id="a-prev" hidden></div>
       <div class="meta">
+        <button id="btn-listen">Listen</button>
+        <button id="btn-imgs" hidden></button>
         <button id="btn-otherlang"></button>
         <button id="btn-later">Later</button>
         <button id="btn-kindle1">Send to Kindle</button>
@@ -192,6 +201,11 @@ mark { background: var(--hl); color: inherit; }
     <div id="numbers"></div>
     <h2 class="v">Text size</h2>
     <div><button id="fs-down">A&minus;</button><button id="fs-up">A+</button> <small id="fs-now"></small></div>
+    <h2 class="v">Listening</h2>
+    <div><label>English voice <select id="voice-en"></select></label></div>
+    <div><label>Italian voice <select id="voice-it"></select></label></div>
+    <div><button id="btn-voice-test">Test voice</button></div>
+    <p><small>Better voices are free: on the iPhone go to Settings &rsaquo; Accessibility &rsaquo; Spoken Content &rsaquo; Voices, and download an &ldquo;Enhanced&rdquo; or &ldquo;Premium&rdquo; English and Italian voice. Then pick them here. The screen has to stay on while listening; the app asks the phone to keep it awake.</small></p>
     <h2 class="v">Offline</h2>
     <div id="offline"></div>
     <h2 class="v">Backup</h2>
@@ -210,6 +224,10 @@ mark { background: var(--hl); color: inherit; }
 </main>
 
 <div id="passbar" hidden><button id="btn-pass">Save selected passage</button></div>
+<div id="listenbar" hidden>
+  <button id="ls-prev">&laquo; Prev</button><button id="ls-play">Pause</button><button id="ls-next">Next &raquo;</button><button id="ls-rate">1&times;</button><button id="ls-stop">Stop</button>
+  <small id="ls-pos"></small>
+</div>
 <div id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -258,7 +276,7 @@ function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); retu
 
 let state = load(STATE_KEY) || {};
 function fillState() {
-  const def = { ratings: {}, lang: "en", log: [], kindle: [], notes: {}, quotes: [], cards: {}, seen: {}, dates: {}, later: [], queue: [], days: {}, recalls: {}, fs: 19, cur: null };
+  const def = { ratings: {}, lang: "en", log: [], kindle: [], notes: {}, quotes: [], cards: {}, seen: {}, dates: {}, later: [], queue: [], days: {}, recalls: {}, fs: 19, cur: null, img: { art: true, geography: true }, rate: 1, voice: {} };
   Object.keys(def).forEach(k => { if (state[k] === undefined || state[k] === null && k !== "cur") state[k] = def[k]; });
 }
 fillState();
@@ -573,7 +591,47 @@ const BAD_NS = /^(File|Image|Category|Help|Wikipedia|Template|Special|Portal|Tal
 function cleanHtml(html, lang) {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const root = doc.querySelector(".mw-parser-output") || doc.body;
-  root.querySelectorAll(".infobox, .sinottico, .navbox, .navbox-styles, .vertical-navbox, .sidebar, .metadata, .ambox, .avviso, .hatnote, .dablink, .mw-editsection, sup.reference, sup.noprint, .reflist, .references, .mw-references-wrap, figure, .thumb, .gallery, img, .noprint, style, link, script, .mw-empty-elt, .shortdescription, .toc, #toc, .portal, .sistersitebox, .side-box, .mbox-small, .plainlinks.stub, .navigation-not-searchable, .noexcerpt, audio, video, .mw-kartographer-maplink, .mwe-math-fallback-image-inline, .reference").forEach(n => n.remove());
+  /* Images become lightweight placeholders; they only load when images are on for that article. */
+  const seenSrc = new Set();
+  const ph = (img, cap) => {
+    if (!img) return null;
+    let src = img.getAttribute("src") || "";
+    if (!src || /\.svg$/i.test(src)) return null;
+    if (src.indexOf("//") === 0) src = "https:" + src;
+    const w = +img.getAttribute("width") || 0, h = +img.getAttribute("height") || 0;
+    if ((w && w < 100) || (h && h < 60) || seenSrc.has(src)) return null;
+    seenSrc.add(src);
+    const d = doc.createElement("div");
+    d.className = "vr-img";
+    d.setAttribute("data-src", src);
+    d.setAttribute("data-w", w || 4);
+    d.setAttribute("data-h", h || 3);
+    if (cap && cap.trim()) d.setAttribute("data-cap", cap.replace(/\s+/g, " ").trim().slice(0, 400));
+    return d;
+  };
+  const top = [];
+  root.querySelectorAll(".infobox, .sinottico").forEach(box => box.querySelectorAll("img").forEach(img => {
+    if (top.length >= 3) return;
+    const cell = img.closest("td, th");
+    const capEl = cell && cell.querySelector(".infobox-caption, .didascalia");
+    const d = ph(img, capEl ? capEl.textContent : "");
+    if (d) top.push(d);
+  }));
+  root.querySelectorAll(".gallery").forEach(g => {
+    const wrap = doc.createElement("div");
+    Array.prototype.slice.call(g.querySelectorAll("li.gallerybox")).slice(0, 12).forEach(li => {
+      const d = ph(li.querySelector("img"), (li.querySelector(".gallerytext") || {}).textContent || "");
+      if (d) wrap.appendChild(d);
+    });
+    g.replaceWith(wrap);
+  });
+  root.querySelectorAll("figure, .thumb").forEach(f => {
+    if (!f.parentNode) return;
+    const d = ph(f.querySelector("img"), (f.querySelector("figcaption, .thumbcaption") || {}).textContent || "");
+    if (d) f.replaceWith(d); else f.remove();
+  });
+  root.querySelectorAll(".infobox, .sinottico, .navbox, .navbox-styles, .vertical-navbox, .sidebar, .metadata, .ambox, .avviso, .hatnote, .dablink, .mw-editsection, sup.reference, sup.noprint, .reflist, .references, .mw-references-wrap, img, .noprint, style, link, script, .mw-empty-elt, .shortdescription, .toc, #toc, .portal, .sistersitebox, .side-box, .mbox-small, .plainlinks.stub, .navigation-not-searchable, .noexcerpt, audio, video, .mw-kartographer-maplink, .mwe-math-fallback-image-inline, .reference").forEach(n => n.remove());
+  for (let i = top.length - 1; i >= 0; i--) root.insertBefore(top[i], root.firstChild);
   let cut = false;
   Array.prototype.slice.call(root.children).forEach(e => {
     if (!cut) {
@@ -634,6 +692,7 @@ async function show(opts) {
 }
 
 function displayArticle(a, o) {
+  stopListen();
   if (o.pushBack && current) backStack.push(snapshot(current));
   const it = o.it || (a.lang === "en" ? byTitle[normTitle(a.title)] : null) || null;
   const key = it ? it.t : (o.key || normTitle(a.title));
@@ -642,6 +701,7 @@ function displayArticle(a, o) {
   $("backrow").hidden = !backStack.length;
   $("a-title").textContent = a.title;
   $("article").innerHTML = a.html;
+  paintImages();
   const mins = minutesOf($("article").textContent);
   const where = it ? (it.d + " · " + it.p.split(SEP).slice(1).join(SEP) + (it.l3 ? " · essential" : "")) : "a detour, not on the list";
   $("a-meta").textContent = where + " · about " + mins + " min" + (mins > TARGET_MAX ? " (long, read part of it if you like)" : "");
@@ -738,13 +798,171 @@ window.addEventListener("scroll", () => { lastActive = Date.now(); updateDepth()
 ["touchstart", "keydown", "mousemove"].forEach(ev => window.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true }));
 setInterval(() => {
   if (document.visibilityState !== "visible" || view !== "read" || !current) return;
-  if (Date.now() - lastActive > 90000) return;
+  if (!tts.on && Date.now() - lastActive > 90000) return;
   current.secs += 5;
   state.days[today()] = (state.days[today()] || 0) + 5;
   if (state.cur) state.cur.y = window.scrollY / Math.max(1, document.documentElement.scrollHeight);
   if (++tickN % 6 === 0) { saveState(); paintStatline(); }
 }, 5000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { recordSeen(); saveState(); } });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { recordSeen(); saveState(); }
+  else if (tts.on) { keepAwake(); if (!speechSynthesis.speaking) speak(tts.i); }
+});
+
+/* ================= images ================= */
+function imgKey() { return current && current.it ? current.it.d : "detour"; }
+function imagesOn() { return !!state.img[imgKey()]; }
+function paintImages() {
+  const art = $("article"), phs = art.querySelectorAll(".vr-img");
+  const b = $("btn-imgs");
+  b.hidden = !phs.length;
+  if (!phs.length) return;
+  const on = imagesOn();
+  art.classList.toggle("imgs", on);
+  b.textContent = on ? "Hide images" : "Images (" + phs.length + ")";
+  if (!on) return;
+  phs.forEach(p => {
+    if (p.firstChild) return;
+    const src = p.getAttribute("data-src"), w = +p.getAttribute("data-w"), h = +p.getAttribute("data-h");
+    const cap = p.getAttribute("data-cap") || "";
+    // ask for a sharper version than the small thumbnail; fall back to the original if it doesn't exist
+    const big = /\/thumb\//.test(src) && w && w < 960 ? src.replace(/\/(\d+)px-([^/]+)$/, "/960px-$2") : src;
+    const img = el("img", { src: big, alt: cap, loading: "lazy", decoding: "async", style: "aspect-ratio:" + w + "/" + h });
+    img.addEventListener("error", () => { if (img.getAttribute("src") !== src) img.src = src; else p.remove(); }, { once: false });
+    p.appendChild(el("a", { href: big, target: "_blank", rel: "noopener" }, img));
+    if (cap) p.appendChild(el("div", { class: "cap" }, cap));
+  });
+}
+function toggleImages() {
+  if (!current) return;
+  state.img[imgKey()] = !imagesOn();
+  saveState();
+  paintImages();
+  toast(imagesOn() ? "Images on for " + imgKey() + " articles." : "Images off for " + imgKey() + " articles.");
+}
+
+/* ================= listen (read aloud) ================= */
+const RATES = [0.9, 1, 1.15, 1.3, 1.5];
+const tts = { on: false, i: 0, chunks: [], token: 0, u: null, wake: null, key: null };
+let lastTouch = 0;
+["touchstart", "wheel", "keydown"].forEach(ev => window.addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true }));
+function canSpeak() { return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window; }
+function voicesFor(lang) {
+  return speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().indexOf(lang) === 0);
+}
+function pickVoice(lang) {
+  const vs = voicesFor(lang);
+  if (!vs.length) return null;
+  const want = state.voice[lang];
+  const chosen = want && vs.find(v => v.name === want);
+  if (chosen) return chosen;
+  const score = v => (/premium/i.test(v.name) ? 4 : 0) + (/enhanced|improved/i.test(v.name) ? 3 : 0) + (v.localService ? 1 : 0) + (/^(en-gb|it-it)$/i.test(v.lang.replace("_", "-")) ? 1 : 0);
+  return vs.slice().sort((a, b) => score(b) - score(a))[0];
+}
+function buildChunks() {
+  const art = $("article"), out = [];
+  art.querySelectorAll("p, h2, h3, h4, li, blockquote, dd").forEach(e => {
+    if (e.closest("table, .vr-img")) return;
+    if (e.parentElement && e.parentElement.closest("#article p, #article li, #article blockquote, #article dd")) return;
+    const text = e.textContent.replace(/\s+/g, " ").trim();
+    if (!text) return;
+    // short pieces: long utterances get cut off on some phones
+    const sents = text.match(/[^.!?;]+[.!?;]+["”»)]*\s*|[^.!?;]+$/g) || [text];
+    let buf = "";
+    sents.forEach(s => {
+      if ((buf + s).length > 320 && buf) { out.push({ el: e, text: buf.trim() }); buf = ""; }
+      buf += s;
+    });
+    if (buf.trim()) out.push({ el: e, text: buf.trim() });
+  });
+  return out;
+}
+function markSpeaking(e) {
+  document.querySelectorAll("#article .speaking").forEach(x => x.classList.remove("speaking"));
+  if (!e) return;
+  e.classList.add("speaking");
+  if (view !== "read" || Date.now() - lastTouch < 5000) return;
+  const r = e.getBoundingClientRect();
+  if (r.top < 0 || r.bottom > window.innerHeight - 70) {
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    e.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+  }
+}
+function speak(i) {
+  const tok = ++tts.token;
+  if (i >= tts.chunks.length) { stopListen(); toast("End of the article."); return; }
+  if (i < 0) i = 0;
+  tts.i = i;
+  const c = tts.chunks[i];
+  markSpeaking(c.el);
+  $("ls-pos").textContent = " " + (i + 1) + "/" + tts.chunks.length;
+  if (current) current.depth = Math.max(current.depth, (i + 1) / tts.chunks.length);
+  const go = () => {
+    if (tok !== tts.token) return;
+    const u = new SpeechSynthesisUtterance(c.text);
+    const lang = current && current.lang === "it" ? "it" : "en";
+    u.lang = lang === "it" ? "it-IT" : "en-GB";
+    const v = pickVoice(lang);
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = state.rate || 1;
+    u.onend = () => { if (tok === tts.token && tts.on) speak(i + 1); };
+    u.onerror = e => { if (tok === tts.token && tts.on && e.error !== "interrupted" && e.error !== "canceled") speak(i + 1); };
+    tts.u = u;
+    speechSynthesis.speak(u);
+  };
+  if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 80); }
+  else go();
+}
+async function keepAwake() {
+  try { if (navigator.wakeLock && !tts.wake) { tts.wake = await navigator.wakeLock.request("screen"); tts.wake.addEventListener("release", () => { tts.wake = null; }); } } catch (e) { tts.wake = null; }
+}
+function startListen() {
+  if (!current || !canSpeak()) return;
+  if (tts.key !== current.key || !tts.chunks.length) {
+    tts.chunks = buildChunks();
+    tts.key = current.key;
+    const first = tts.chunks.findIndex(c => c.el.getBoundingClientRect().bottom > 80);
+    tts.i = first < 0 ? 0 : first;
+  }
+  if (!tts.chunks.length) { toast("Nothing to read aloud."); return; }
+  tts.on = true;
+  document.body.classList.add("listening");
+  $("listenbar").hidden = false;
+  $("ls-play").textContent = "Pause";
+  $("ls-rate").textContent = (state.rate || 1) + "×";
+  $("btn-listen").textContent = "Listening…";
+  keepAwake();
+  speak(tts.i);
+}
+function pauseListen() {
+  tts.on = false;
+  tts.token++;
+  if (canSpeak()) speechSynthesis.cancel();
+  $("ls-play").textContent = "Play";
+  $("btn-listen").textContent = "Listen";
+}
+function stopListen() {
+  if (!tts.on && $("listenbar").hidden) return;
+  pauseListen();
+  markSpeaking(null);
+  tts.chunks = []; tts.key = null;
+  $("listenbar").hidden = true;
+  document.body.classList.remove("listening");
+  if (tts.wake) { tts.wake.release().catch(() => {}); tts.wake = null; }
+}
+function paintVoices() {
+  if (!canSpeak()) return;
+  ["en", "it"].forEach(lang => {
+    const sel = $("voice-" + lang), vs = voicesFor(lang), cur = pickVoice(lang);
+    sel.innerHTML = "";
+    if (!vs.length) { sel.appendChild(el("option", { value: "" }, "no voice installed")); return; }
+    vs.forEach(v => {
+      const o = el("option", { value: v.name }, v.name + " (" + v.lang + ")");
+      if (cur && v.name === cur.name) o.selected = true;
+      sel.appendChild(o);
+    });
+  });
+}
 
 function recordSeen() {
   if (!current) return;
@@ -1332,6 +1550,7 @@ function renderMore() {
     "Notes: " + Object.keys(state.notes).length + " · passages: " + state.quotes.length + " · in recall: " + Object.keys(state.cards).length
   ].forEach(t => box.appendChild(el("div", null, t)));
   $("fs-now").textContent = state.fs + "px";
+  paintVoices();
   const off = $("offline");
   off.innerHTML = "";
   off.appendChild(el("div", null, state.queue.length + " of " + QUEUE_SIZE + " next articles saved for offline. “Next for me” uses them first, so they also open instantly."));
@@ -1379,6 +1598,7 @@ function toXhtml(html) {
   const d = document.implementation.createHTMLDocument("x");
   d.body.innerHTML = html;
   d.body.querySelectorAll("[data-inapp]").forEach(a => a.removeAttribute("data-inapp"));
+  d.body.querySelectorAll(".vr-img").forEach(n => n.remove());
   d.body.querySelectorAll("[id]").forEach(n => { if (!/^[A-Za-z_][\w.-]*$/.test(n.id)) n.removeAttribute("id"); });
   const ser = new XMLSerializer();
   let out = "";
@@ -1557,6 +1777,32 @@ $("btn-skip").addEventListener("click", () => rate(0, true));
 $("btn-note").addEventListener("click", saveNote);
 $("btn-later").addEventListener("click", toggleLater);
 $("btn-kindle1").addEventListener("click", sendCurrent);
+$("btn-imgs").addEventListener("click", toggleImages);
+if (!canSpeak()) $("btn-listen").hidden = true;
+$("btn-listen").addEventListener("click", () => { if (tts.on) pauseListen(); else startListen(); });
+$("ls-play").addEventListener("click", () => { if (tts.on) pauseListen(); else startListen(); });
+$("ls-prev").addEventListener("click", () => { if (!tts.on) startListen(); speak(tts.i - 1); });
+$("ls-next").addEventListener("click", () => { if (!tts.on) startListen(); speak(tts.i + 1); });
+$("ls-stop").addEventListener("click", stopListen);
+$("ls-rate").addEventListener("click", () => {
+  const i = RATES.indexOf(state.rate || 1);
+  state.rate = RATES[(i + 1) % RATES.length];
+  saveState();
+  $("ls-rate").textContent = state.rate + "×";
+  if (tts.on) speak(tts.i);
+});
+["en", "it"].forEach(lang => $("voice-" + lang).addEventListener("change", e => { state.voice[lang] = e.target.value; saveState(); }));
+$("btn-voice-test").addEventListener("click", () => {
+  if (!canSpeak()) return;
+  speechSynthesis.cancel();
+  const lang = state.lang === "it" ? "it" : "en";
+  const u = new SpeechSynthesisUtterance(lang === "it" ? "Nel mezzo del cammin di nostra vita." : "The unexamined life is not worth living.");
+  const v = pickVoice(lang);
+  if (v) { u.voice = v; u.lang = v.lang; }
+  u.rate = state.rate || 1;
+  speechSynthesis.speak(u);
+});
+if (canSpeak()) speechSynthesis.addEventListener ? speechSynthesis.addEventListener("voiceschanged", paintVoices) : (speechSynthesis.onvoiceschanged = paintVoices);
 $("btn-bundle").addEventListener("click", makeBundle);
 document.querySelectorAll("#rate button[data-r]").forEach(b => b.addEventListener("click", () => rate(+b.getAttribute("data-r"), false)));
 $("btn-back").addEventListener("click", () => {
